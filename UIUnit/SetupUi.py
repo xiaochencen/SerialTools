@@ -4,16 +4,14 @@ from PyQt5.QtWidgets import (QApplication, QWidget, QMainWindow, QHBoxLayout,
                              QSplitter, QAction, qApp, QTextEdit, QFormLayout,
                              QGroupBox, QGridLayout, QLabel)
 from PyQt5.QtGui import QIcon
-from PyQt5.QtSerialPort import QSerialPort
 from configparser import ConfigParser
 
 
 class MainWindow(QMainWindow):
+
     def __init__(self):
         super().__init__()
         self.config = ConfigParser()
-        self.com = QSerialPort()
-
         self.setting_widget = QWidget()
         self.show_widget = QWidget()
         self.info_widget = QWidget()
@@ -27,7 +25,6 @@ class MainWindow(QMainWindow):
         self.receive_hex = QCheckBox()
         self.receive_asc = QCheckBox()
         self.init_ui()
-        self.init_connect()
 
     def init_ui(self):
         self.config.read('config.ini')
@@ -36,7 +33,9 @@ class MainWindow(QMainWindow):
                          self.config.getint('Size Setting', 'Geometry_ay'),
                          self.config.getint('Size Setting', 'Geometry_xs'),
                          self.config.getint('Size Setting', 'Geometry_ys'))
-        self.setWindowTitle(self.config.get('Text Setting', 'MainWindow_Title'))
+        # todo: change the version number automatically
+        self.setWindowTitle(self.config.get('Text Setting', 'MainWindow_Title')+'--V1.0')
+
         self.setWindowIcon(QIcon(self.config.get('Picture Setting', 'MainWind_icon')))
         self.main_widget.addWidget(self.setting_widget)
         self.main_widget.addWidget(self.show_widget)
@@ -44,12 +43,13 @@ class MainWindow(QMainWindow):
         self.main_widget.setStretchFactor(0, 2)
         self.main_widget.setStretchFactor(1, 12)
         self.main_widget.setStretchFactor(2, 2)
-
+        self.open_serial_button.setIcon(QIcon(self.config.get('Picture Setting', 'Close Button')))
         self.init_show_widget()
         self.init_statue_bar()
         self.init_menu_bar()
         self.init_setting_widget()
         self.setCentralWidget(self.main_widget)
+
 
     def init_menu_bar(self):
         scan_action = QAction('Scan(&S)', self)
@@ -68,13 +68,15 @@ class MainWindow(QMainWindow):
         self.serial_baudrate_combobox = QComboBox()
         self.serial_bytes_combobox = QComboBox()
         self.serial_parity_combobox = QComboBox()
+        self.serial_stop_combobox = QComboBox()
         self.serial_baudrate_combobox.addItems(['9600', '16200', '38400'])
         self.serial_baudrate_combobox.setCurrentIndex(1)
         self.serial_baudrate_combobox.setEditable(True)
         self.serial_bytes_combobox.addItems(['5', '6', '7', '8'])
         self.serial_bytes_combobox.setCurrentIndex(3)
-        self.serial_parity_combobox.addItems(['None', 'Odd', 'Space'])
+        self.serial_parity_combobox.addItems(['No', 'Odd', 'Space', 'Even', 'Mark'])
         self.serial_parity_combobox.setCurrentIndex(0)
+        self.serial_stop_combobox.addItems(['One', 'OneAndHalf', 'Two'])
         # learn QFromLayout
         serial_setting_layout.addRow(QLabel(r'端口'), self.serial_port_combobox)
         serial_setting_layout.addRow(QLabel(r'波特率'), self.serial_baudrate_combobox)
@@ -121,10 +123,12 @@ class MainWindow(QMainWindow):
         pass
 
     def init_statue_bar(self):
+        self.status_bar_status = QLabel()
+        self.status_bar_status.setMinimumWidth(80)
+        self.status_bar_status.setText("<font color=%s>%s</font>" % ("#008200", self.config.get('Status Bar', 'OK')))
+        self.status_bar_recieve_count = QLabel(self.config.get('Status Bar', 'Receive')+r'Bytes:'+'0')
+        self.statusBar().addWidget(self.status_bar_status)
+        self.statusBar().addWidget(self.status_bar_recieve_count, 2)
         pass
-
-    def init_connect(self):
-        pass
-
 
 
