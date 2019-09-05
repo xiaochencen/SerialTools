@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import (QApplication, QWidget, QMainWindow, QHBoxLayout,
                              QVBoxLayout, QComboBox, QPushButton, QCheckBox,
                              QSplitter, QAction, qApp, QTextEdit, QFormLayout,
                              QGroupBox, QGridLayout, QLabel)
-from PyQt5.QtGui import QIcon
+from PyQt5.QtGui import QIcon, QPixmap
 from configparser import ConfigParser
 
 
@@ -22,13 +22,12 @@ class MainWindow(QMainWindow):
         self.show_layout = QVBoxLayout()
 
         self.open_serial_button = QPushButton()
-        self.receive_hex = QCheckBox()
-        self.receive_asc = QCheckBox()
+        self.receive_hex_checkbox = QCheckBox()
+        self.receive_asc_checkbox = QCheckBox()
         self.init_ui()
 
     def init_ui(self):
         self.config.read('config.ini')
-        self.open_serial_button.setText(self.config.get('Button Setting', 'Start'))
         self.setGeometry(self.config.getint('Size Setting', 'Geometry_ax'),
                          self.config.getint('Size Setting', 'Geometry_ay'),
                          self.config.getint('Size Setting', 'Geometry_xs'),
@@ -43,7 +42,8 @@ class MainWindow(QMainWindow):
         self.main_widget.setStretchFactor(0, 2)
         self.main_widget.setStretchFactor(1, 12)
         self.main_widget.setStretchFactor(2, 2)
-        self.open_serial_button.setIcon(QIcon(self.config.get('Picture Setting', 'Close Button')))
+        self.open_serial_button.setCheckable(True)
+        self.open_serial_button.setText('Click')
         self.init_show_widget()
         self.init_statue_bar()
         self.init_menu_bar()
@@ -69,8 +69,9 @@ class MainWindow(QMainWindow):
         self.serial_bytes_combobox = QComboBox()
         self.serial_parity_combobox = QComboBox()
         self.serial_stop_combobox = QComboBox()
-        self.serial_baudrate_combobox.addItems(['9600', '16200', '38400'])
-        self.serial_baudrate_combobox.setCurrentIndex(1)
+        self.serial_baudrate_combobox.addItems(['1200', '2400', '4800', '9600', '19200',
+                                                '38400', '57600', '115200'])
+        self.serial_baudrate_combobox.setCurrentIndex(3)
         self.serial_baudrate_combobox.setEditable(True)
         self.serial_bytes_combobox.addItems(['5', '6', '7', '8'])
         self.serial_bytes_combobox.setCurrentIndex(3)
@@ -90,15 +91,17 @@ class MainWindow(QMainWindow):
         serial_receive_layout = QGridLayout()
         hex_label = QLabel('Hex')
         asc_label = QLabel('ASC')
-        self.receive_hex.setChecked(True)
-        self.receive_asc.setChecked(False)
+        self.receive_hex_checkbox.setChecked(True)
+        self.receive_asc_checkbox.setChecked(False)
+        self.receive_asc_checkbox.setAutoExclusive(True)
+        self.receive_hex_checkbox.setAutoExclusive(True)
         self.check_box_rts = QCheckBox('Rts')
         self.check_box_dtr = QCheckBox('Dtr')
         # learn QGridLayout
         serial_receive_layout.addWidget(hex_label, 0, 0)
-        serial_receive_layout.addWidget(self.receive_hex, 0, 1)
+        serial_receive_layout.addWidget(self.receive_hex_checkbox, 0, 1)
         serial_receive_layout.addWidget(asc_label, 0, 2)
-        serial_receive_layout.addWidget(self.receive_asc, 0, 3)
+        serial_receive_layout.addWidget(self.receive_asc_checkbox, 0, 3)
         serial_receive_layout.addWidget(self.check_box_dtr, 1, 0)
         serial_receive_layout.addWidget(self.check_box_rts, 1, 1)
         receive_group_box.setLayout(serial_receive_layout)
@@ -108,14 +111,22 @@ class MainWindow(QMainWindow):
         pass
 
     def init_show_widget(self):
-        button_layout = QGridLayout()
-        info_layout = QGroupBox()
+        show_button_layout = QGridLayout()
+        show_info_layout = QHBoxLayout()
+        self.decoding_combobox = QComboBox()
+        self.decoding_combobox.addItems(['ASCII', 'GB2312'])
+        self.decoding_combobox.setEditable(False)
         self.receive_area = QTextEdit()
+        self.receive_area.setTabletTracking(True)
         self.clear_button = QPushButton(self.config.get('Button Setting', 'Clear'))
         # self.show_wave =
+        show_button_layout.addWidget(self.clear_button, 0, 0)
+        show_info_layout.addWidget(self.decoding_combobox)
         self.show_widget.setLayout(self.show_layout)
         self.show_layout.addWidget(self.receive_area)
-        self.show_layout.addWidget(self.clear_button)
+        self.show_layout.addLayout(show_info_layout)
+        self.show_layout.addLayout(show_button_layout)
+
         pass
 
     # detail information show and seq setting
