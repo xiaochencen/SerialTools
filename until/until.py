@@ -88,13 +88,8 @@ class Unit(MainWindow):
         # 设置停止位
         self.com.setStopBits(  # QSerialPort::OneStop
             getattr(QSerialPort, self.serial_stop_combobox.currentText() + 'Stop'))
-
-        # NoFlowControl          没有流程控制
-        # HardwareControl        硬件流程控制(RTS/CTS)
-
-        # SoftwareControl        软件流程控制(XON/XOFF)
-        # UnknownFlowControl     未知控制
-        self.com.setFlowControl(QSerialPort.NoFlowControl)
+        self.com.setFlowControl(  # QSerialPort::FlowControl
+            getattr(QSerialPort, self.serial_flow_combobox.currentText() + 'Control'))
         # 读写方式打开串口
         try:
             self.com.open(QIODevice.ReadWrite)
@@ -133,7 +128,7 @@ class Unit(MainWindow):
         self.receive_area.clear()
         pass
 
-    
+
 
 
 
