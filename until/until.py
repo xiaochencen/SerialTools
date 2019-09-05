@@ -11,12 +11,15 @@ Created on 2019年9月4日
 from PyQt5.QtSerialPort import QSerialPortInfo, QSerialPort
 from PyQt5.QtCore import pyqtSignal, pyqtSlot, QIODevice
 from PyQt5.QtWidgets import QMessageBox
-from PyQt5.QtGui import QPixmap
 import threading, sys
 from UIUnit.SetupUi import MainWindow, QIcon
+from model import signal_process
 
 
-# todo： 改变继承MainWindow 不然线程会卡在查找Port的While循环里
+def clear_count(self):
+    self.receive_count = 0
+
+
 class Unit(MainWindow):
     detected_port = pyqtSignal()
 
@@ -24,8 +27,10 @@ class Unit(MainWindow):
         super(Unit, self).__init__()
         self.UI = MainWindow()
         self.is_detect_serial_port = True
+        self.temp_data = []
         self.com = QSerialPort()
         self.set_connect()
+        self.receive_count = 0
         self.detect_serial_port()
 
     def detect_serial_port(self):
@@ -50,6 +55,8 @@ class Unit(MainWindow):
         self.open_serial_button.clicked.connect(self.on_button_open_close_clicked)
         self.com.readyRead.connect(self.__read_ready)
         self.clear_button.clicked.connect(self.clear_show)
+        self.filter_data_checkbox.clicked.connect(self._check_parameter)
+        self.transform_data_checkbox.clicked.connect(self._check_parameter)
 
     def update_auto(self):
         # Auto update Serial port to combobox After Device inserted
@@ -103,30 +110,68 @@ class Unit(MainWindow):
             return
 
     def closeEvent(self, event):
+        # rewrite closeEvent
         if self.com.isOpen():
             self.com.close()
         super(Unit, self).closeEvent(event)
 
     def __read_ready(self):
         if self.com.bytesAvailable():
-            # 当数据可读取时
-            # 这里只是简答测试少量数据,如果数据量太多了此处readAll其实并没有读完
-            # 需要自行设置粘包协议
             data = self.com.readAll()
+            self.receive_count += data.count()
             if self.receive_hex_checkbox.isChecked():
                 # 如果勾选了hex显示
                 data = data.toHex()
             data = data.data()
-            # 解码显示（中文啥的）
             try:
-                self.receive_area.append(data.decode('GB2312'))
-            except:
+                decode_data = data.decode(self.decoding_combobox.currentText())
+
+                if self.filter_data_checkbox.isChecked():
+                    show_data = signal_process.filter_data(decode_data, self.begin_str_edit.text(),
+                                                           int(self.bytes_of_data_edit.text()),
+                                                           int(self.bytes_of_total_edit.text()))
+                    self.temp_data.extend(show_data)
+                    for i in show_data:
+                        self.receive_area.append(str(i))
+                elif self.transform_data_checkbox.isChecked():
+                    show_data = signal_process.transform_data(decode_data, self.begin_str_edit.text(),
+                                                              int(self.bytes_of_data_edit.text()),
+                                                              int(self.bytes_of_total_edit.text()))
+                    for i in show_data:
+                        self.receive_area.append(str(i))
+                else:
+                    self.receive_area.append(decode_data)
+            except UnicodeError:
                 # 解码失败
                 self.receive_area.append('Error Decode' + repr(data))
 
+            self.status_bar_recieve_count.setText(r'Receive ' + r'Bytes:' + str(self.receive_count))
+
     def clear_show(self):
+        self.clear_count()
         self.receive_area.clear()
         pass
+
+    def clear_count(self):
+        self.receive_count = 0
+        self.status_bar_recieve_count.setText(r'Receive ' + r'Bytes:' + str(self.receive_count))
+
+    def _check_parameter(self):
+        if self.bytes_of_total_edit.text() == '':
+            QMessageBox.critical(self, 'Parameter Error', 'Please input total bytes parameter')
+            self.filter_data_checkbox.setChecked(False)
+            self.transform_data_checkbox.setChecked(False)
+            return
+        if self.bytes_of_data_edit.text() == '':
+            QMessageBox.critical(self, 'Parameter Error', 'Please input data bytes parameter')
+            self.filter_data_checkbox.setChecked(False)
+            self.transform_data_checkbox.setChecked(False)
+            return
+        if self.begin_str_edit.text() == '':
+            QMessageBox.critical(self, 'Parameter Error', 'Please input Begin Mark parameter')
+            self.filter_data_checkbox.setChecked(False)
+            self.transform_data_checkbox.setChecked(False)
+            return
 
 
 
