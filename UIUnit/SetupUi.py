@@ -1,9 +1,9 @@
-from PyQt5.QtCore import pyqtSlot, pyqtSignal, Qt
+from PyQt5.QtCore import (pyqtSlot, pyqtSignal, Qt,)
 from PyQt5.QtWidgets import (QApplication, QWidget, QMainWindow, QHBoxLayout,
                              QVBoxLayout, QComboBox, QPushButton, QCheckBox,
                              QSplitter, QAction, qApp, QTextEdit, QFormLayout,
-                             QGroupBox, QGridLayout, QLabel)
-from PyQt5.QtGui import QIcon, QPixmap
+                             QGroupBox, QGridLayout, QLabel, QLineEdit)
+from PyQt5.QtGui import (QIcon, QPixmap, QIntValidator)
 from configparser import ConfigParser
 
 
@@ -14,7 +14,7 @@ class MainWindow(QMainWindow):
         self.config = ConfigParser()
         self.setting_widget = QWidget()
         self.show_widget = QWidget()
-        self.info_widget = QWidget()
+        self.heart_function_widget = QWidget()
         self.main_widget = QSplitter()
 
         self.main_layout = QHBoxLayout()
@@ -22,8 +22,8 @@ class MainWindow(QMainWindow):
         self.show_layout = QVBoxLayout()
 
         self.open_serial_button = QPushButton()
-        self.receive_hex_checkbox = QCheckBox()
-        self.receive_asc_checkbox = QCheckBox()
+        self.receive_hex_checkbox = QCheckBox('HEX')
+        self.receive_asc_checkbox = QCheckBox('ASCII')
         self.init_ui()
 
     def init_ui(self):
@@ -38,7 +38,7 @@ class MainWindow(QMainWindow):
         self.setWindowIcon(QIcon(self.config.get('Picture Setting', 'MainWind_icon')))
         self.main_widget.addWidget(self.setting_widget)
         self.main_widget.addWidget(self.show_widget)
-        self.main_widget.addWidget(self.info_widget)
+        self.main_widget.addWidget(self.heart_function_widget)
         self.main_widget.setStretchFactor(0, 2)
         self.main_widget.setStretchFactor(1, 12)
         self.main_widget.setStretchFactor(2, 2)
@@ -48,8 +48,8 @@ class MainWindow(QMainWindow):
         self.init_statue_bar()
         self.init_menu_bar()
         self.init_setting_widget()
+        self.init_heart_function_widget()
         self.setCentralWidget(self.main_widget)
-
 
     def init_menu_bar(self):
         scan_action = QAction('Scan(&S)', self)
@@ -62,6 +62,8 @@ class MainWindow(QMainWindow):
         view_menu.addAction(port_setting_action)
 
     def init_setting_widget(self):
+        # serial setting part set
+        # port set part
         group_box = QGroupBox('SerialSetting')
         serial_setting_layout = QFormLayout()
         self.serial_port_combobox = QComboBox()
@@ -69,6 +71,7 @@ class MainWindow(QMainWindow):
         self.serial_bytes_combobox = QComboBox()
         self.serial_parity_combobox = QComboBox()
         self.serial_stop_combobox = QComboBox()
+        self.serial_flow_combobox = QComboBox()
         self.serial_baudrate_combobox.addItems(['1200', '2400', '4800', '9600', '19200',
                                                 '38400', '57600', '115200'])
         self.serial_baudrate_combobox.setCurrentIndex(3)
@@ -78,34 +81,42 @@ class MainWindow(QMainWindow):
         self.serial_parity_combobox.addItems(['No', 'Odd', 'Space', 'Even', 'Mark'])
         self.serial_parity_combobox.setCurrentIndex(0)
         self.serial_stop_combobox.addItems(['One', 'OneAndHalf', 'Two'])
+        self.serial_flow_combobox.addItems(['NoFlow', 'Hardware', 'Software', 'UnknownFlow'])
+        self.serial_flow_combobox.setCurrentIndex(0)
         # learn QFromLayout
         serial_setting_layout.addRow(QLabel(r'端口'), self.serial_port_combobox)
         serial_setting_layout.addRow(QLabel(r'波特率'), self.serial_baudrate_combobox)
         serial_setting_layout.addRow(QLabel(r'分割符'), self.serial_parity_combobox)
         serial_setting_layout.addRow(QLabel(r'数据位数'), self.serial_bytes_combobox)
+        serial_setting_layout.addRow(QLabel(r'流控制'), self.serial_flow_combobox)
         serial_setting_layout.addRow(QLabel(r'打开串口'), self.open_serial_button)
         group_box.setLayout(serial_setting_layout)
-        self.setting_layout.addWidget(group_box)
 
+        # receive set part
         receive_group_box = QGroupBox('Receive Setting')
-        serial_receive_layout = QGridLayout()
-        hex_label = QLabel('Hex')
-        asc_label = QLabel('ASC')
+        data_process_group_box = QGroupBox('Data Process')
+        hex_or_ascii_layout = QHBoxLayout()
+        data_process_layout = QHBoxLayout()
+        receive_layout = QGridLayout()
         self.receive_hex_checkbox.setChecked(True)
         self.receive_asc_checkbox.setChecked(False)
         self.receive_asc_checkbox.setAutoExclusive(True)
         self.receive_hex_checkbox.setAutoExclusive(True)
-        self.check_box_rts = QCheckBox('Rts')
-        self.check_box_dtr = QCheckBox('Dtr')
-        # learn QGridLayout
-        serial_receive_layout.addWidget(hex_label, 0, 0)
-        serial_receive_layout.addWidget(self.receive_hex_checkbox, 0, 1)
-        serial_receive_layout.addWidget(asc_label, 0, 2)
-        serial_receive_layout.addWidget(self.receive_asc_checkbox, 0, 3)
-        serial_receive_layout.addWidget(self.check_box_dtr, 1, 0)
-        serial_receive_layout.addWidget(self.check_box_rts, 1, 1)
-        receive_group_box.setLayout(serial_receive_layout)
+        hex_or_ascii_layout.addWidget(self.receive_hex_checkbox)
+        hex_or_ascii_layout.addWidget(self.receive_asc_checkbox)
+        receive_layout.addLayout(hex_or_ascii_layout, 0, 0)
+        self.filter_data_checkbox = QCheckBox('数据过滤')
+        self.filter_data_checkbox.setObjectName('filter_data_checkbox')
+        self.transform_data_checkbox = QCheckBox('数据转换')
+        self.transform_data_checkbox.setObjectName('transform_data_checkbox')
+        data_process_layout.addWidget(self.filter_data_checkbox)
+        data_process_layout.addWidget(self.transform_data_checkbox)
+        data_process_group_box.setLayout(data_process_layout)
+        receive_group_box.setLayout(receive_layout)
+
+        self.setting_layout.addWidget(group_box)
         self.setting_layout.addWidget(receive_group_box)
+        self.setting_layout.addWidget(data_process_group_box)
         self.setting_layout.addStretch()
         self.setting_widget.setLayout(self.setting_layout)
         pass
@@ -130,14 +141,32 @@ class MainWindow(QMainWindow):
         pass
 
     # detail information show and seq setting
-    def init_info_widget(self):
+    def init_heart_function_widget(self):
+        function_layout = QVBoxLayout()
+        data_format_group = QGroupBox('Data Format')
+        data_format_layout = QFormLayout()
+        self.begin_str_edit = QLineEdit()
+        self.bytes_of_data_edit = QLineEdit()
+        self.bytes_of_total_edit = QLineEdit()
+        self.bytes_of_data_edit.setValidator(QIntValidator(1, 100))
+        self.bytes_of_data_edit.setPlaceholderText("0~100")
+        self.bytes_of_total_edit.setValidator(QIntValidator(1, 100))
+        self.bytes_of_total_edit.setPlaceholderText("0~100")
+        data_format_layout.addRow(QLabel('Begin Mark:'), self.begin_str_edit)
+        data_format_layout.addRow(QLabel('Total Bytes:'), self.bytes_of_total_edit)
+        data_format_layout.addRow(QLabel('Data Bytes:'), self.bytes_of_data_edit)
+        data_format_group.setLayout(data_format_layout)
+        function_layout.addWidget(data_format_group)
+        self.heart_function_widget.setLayout(function_layout)
+        function_layout.addStretch()
         pass
 
     def init_statue_bar(self):
+        # todo: 可以增加状态闪烁的功能 使用QTime
         self.status_bar_status = QLabel()
         self.status_bar_status.setMinimumWidth(80)
         self.status_bar_status.setText("<font color=%s>%s</font>" % ("#008200", self.config.get('Status Bar', 'OK')))
-        self.status_bar_recieve_count = QLabel(self.config.get('Status Bar', 'Receive')+r'Bytes:'+'0')
+        self.status_bar_recieve_count = QLabel(r'Receive '+r'Bytes:'+'0')
         self.statusBar().addWidget(self.status_bar_status)
         self.statusBar().addWidget(self.status_bar_recieve_count, 2)
         pass
