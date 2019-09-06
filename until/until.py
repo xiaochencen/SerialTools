@@ -9,11 +9,12 @@ Created on 2019年9月4日
 @description:
 """
 from PyQt5.QtSerialPort import QSerialPortInfo, QSerialPort
-from PyQt5.QtCore import pyqtSignal, pyqtSlot, QIODevice
+from PyQt5.QtCore import pyqtSignal, pyqtSlot, QIODevice, QTimer
 from PyQt5.QtWidgets import QMessageBox
-import threading, sys
+import threading, sys, multiprocessing
 from UIUnit.SetupUi import MainWindow, QIcon
 from model import signal_process
+from model import test
 
 
 def clear_count(self):
@@ -27,8 +28,10 @@ class Unit(MainWindow):
         super(Unit, self).__init__()
         self.UI = MainWindow()
         self.is_detect_serial_port = True
-        self.temp_data = []
+        self.temp_hex_data = []
+        self.temp_int_data = []
         self.com = QSerialPort()
+        self.heart_rate_timer = QTimer()
         self.set_connect()
         self.receive_count = 0
         self.detect_serial_port()
@@ -57,6 +60,9 @@ class Unit(MainWindow):
         self.clear_button.clicked.connect(self.clear_show)
         self.filter_data_checkbox.clicked.connect(self._check_parameter)
         self.transform_data_checkbox.clicked.connect(self._check_parameter)
+        self.heart_rate_timer.timeout.connect(self.heart_rate_cal_process)
+        self.heart_rate_release.clicked.connect(self.heart_rate_cal)
+        self.heart_rate_debug_button.clicked.connect(self.heart_rate_debug)
 
     def update_auto(self):
         # Auto update Serial port to combobox After Device inserted
@@ -120,25 +126,33 @@ class Unit(MainWindow):
             data = self.com.readAll()
             self.receive_count += data.count()
             if self.receive_hex_checkbox.isChecked():
-                # 如果勾选了hex显示
                 data = data.toHex()
             data = data.data()
             try:
                 decode_data = data.decode(self.decoding_combobox.currentText())
-
                 if self.filter_data_checkbox.isChecked():
-                    show_data = signal_process.filter_data(decode_data, self.begin_str_edit.text(),
+                    show_data, rate = signal_process.filter_data(decode_data, self.begin_str_edit.text(),
                                                            int(self.bytes_of_data_edit.text()),
-                                                           int(self.bytes_of_total_edit.text()))
-                    self.temp_data.extend(show_data)
+                                                           int(self.bytes_of_total_edit.text()),
+                                                           self.heart_rate_begin_edit.text(),
+                                                           self.filter_heart_rate.isChecked())
+                    if rate != 0:
+                        self.heart_std_led_show.display(rate)
+                    self.temp_hex_data.extend(show_data)
                     for i in show_data:
                         self.receive_area.append(str(i))
+
                 elif self.transform_data_checkbox.isChecked():
-                    show_data = signal_process.transform_data(decode_data, self.begin_str_edit.text(),
+                    show_data, rate = signal_process.transform_data(decode_data, self.begin_str_edit.text(),
                                                               int(self.bytes_of_data_edit.text()),
-                                                              int(self.bytes_of_total_edit.text()))
+                                                              int(self.bytes_of_total_edit.text()),
+                                                              self.heart_rate_begin_edit.text(),
+                                                              self.filter_heart_rate.isChecked())
+                    self.temp_int_data.extend(show_data)
                     for i in show_data:
                         self.receive_area.append(str(i))
+                    if rate != 0:
+                        self.heart_std_led_show.display(rate)
                 else:
                     self.receive_area.append(decode_data)
             except UnicodeError:
@@ -150,6 +164,8 @@ class Unit(MainWindow):
     def clear_show(self):
         self.clear_count()
         self.receive_area.clear()
+        self.temp_int_data = []
+        self.temp_hex_data = []
         pass
 
     def clear_count(self):
@@ -157,6 +173,7 @@ class Unit(MainWindow):
         self.status_bar_recieve_count.setText(r'Receive ' + r'Bytes:' + str(self.receive_count))
 
     def _check_parameter(self):
+        sender = self.sender()
         if self.bytes_of_total_edit.text() == '':
             QMessageBox.critical(self, 'Parameter Error', 'Please input total bytes parameter')
             self.filter_data_checkbox.setChecked(False)
@@ -172,6 +189,42 @@ class Unit(MainWindow):
             self.filter_data_checkbox.setChecked(False)
             self.transform_data_checkbox.setChecked(False)
             return
+        if sender == self.transform_data_checkbox:
+            self.filter_data_checkbox.setChecked(False)
+
+    def heart_rate_cal_process(self):
+        # heart_rate_main(data, fs, threshold, scalar, smooth: bool, smooth_level):
+        fs = int(self.fs_parameter.text())
+        threshold = int(self.threshold_parameter.text())
+        scalar = int(self.scalar_parameter.text())
+        smooth = self.smooth_switch.isChecked()
+        smooth_level = int(self.smooth_level.text())
+        if len(self.temp_int_data) <= 704:
+            data = self.temp_int_data
+        else:
+            data = self.temp_int_data[-704:]
+        rate = test.heart_rate_main(data, fs, threshold, scalar, bool(smooth), smooth_level)
+        self.heart_led_show.display(rate)
+
+    def heart_rate_cal(self):
+        if self.transform_data_checkbox.isChecked():
+            self.heart_rate_timer.start(13000)
+
+    def heart_rate_debug(self):
+        fs = int(self.fs_parameter.text())
+        threshold = int(self.threshold_parameter.text())
+        scalar = int(self.scalar_parameter.text())
+        smooth = self.smooth_switch.isChecked()
+        smooth_level = int(self.smooth_level.text())
+        if len(self.temp_int_data) <= 704:
+            data = self.temp_int_data
+        else:
+            data = self.temp_int_data[-704:]
+        rate = test.heart_rate_main_debug(data, fs, threshold, scalar, bool(smooth), smooth_level)
+        self.heart_led_show.display(rate)
+
+
+
 
 
 
