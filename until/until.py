@@ -11,22 +11,23 @@ Created on 2019年9月4日
 from PyQt5.QtSerialPort import QSerialPortInfo, QSerialPort
 from PyQt5.QtCore import pyqtSignal, pyqtSlot, QIODevice, QTimer
 from PyQt5.QtWidgets import QMessageBox
-import threading, sys, multiprocessing
+import threading, time, multiprocessing
 from functools import wraps
 from UIUnit.SetupUi import MainWindow, QIcon
 from model import signal_process
 from model import test
+from numpy import save
 
 
 def clear_decorator(func):
     @wraps(func)
-    def wrap_function(*args, **kwargs):
+    def wrapper(*args, **kwargs):
         self = args[0]
         args[0].receive_count = 0
         args[0].status_bar_recieve_count.setText(r'Receive ' + r'Bytes:' + str(args[0].receive_count))
         self.heart_std_led_show.display(0)
         return func(self)
-    return wrap_function
+    return wrapper
 
 
 class Unit(MainWindow):
@@ -71,6 +72,7 @@ class Unit(MainWindow):
         self.heart_rate_timer.timeout.connect(self.heart_rate_cal_process)
         self.heart_rate_release.clicked.connect(self.heart_rate_cal)
         self.heart_rate_debug_button.clicked.connect(self.heart_rate_debug)
+        self.save_data_button.clicked.connect(self.save_data)
 
     def update_auto(self):
         # Auto update Serial port to combobox After Device inserted
@@ -127,6 +129,7 @@ class Unit(MainWindow):
         # rewrite closeEvent
         if self.com.isOpen():
             self.com.close()
+        self.save_parameter()
         super(Unit, self).closeEvent(event)
 
     def __read_ready(self):
@@ -216,7 +219,7 @@ class Unit(MainWindow):
 
     def heart_rate_cal(self):
         if self.transform_data_checkbox.isChecked():
-            self.heart_rate_timer.start(12000)
+            self.heart_rate_timer.start(8000)
 
     def heart_rate_debug(self):
         fs = int(self.fs_parameter.text())
@@ -224,24 +227,30 @@ class Unit(MainWindow):
         scalar = int(self.scalar_parameter.text())
         smooth = self.smooth_switch.isChecked()
         smooth_level = int(self.smooth_level.text())
-        if len(self.temp_int_data) <= 704:
+        if len(self.temp_int_data) <= 768:
             data = self.temp_int_data
         else:
-            data = self.temp_int_data[-704:]
+            data = self.temp_int_data[-768:]
         rate = test.heart_rate_main_debug(data, fs, threshold, scalar, bool(smooth), smooth_level)
         self.heart_led_show.display(rate)
 
     def save_parameter(self):
-        self.config['Data Format'] = {'Heart Begin': self.heart_rate_begin_edit,
-                                      'Begin Mark': self.begin_str_edit,
-                                      'Total Len': self.bytes_of_total_edit,
-                                      'Data Len': self.bytes_of_data_edit}
-        self.config['Heart Rate'] = {'Fs': self.fs_parameter,
-                                     'Threshold': self.threshold_parameter,
-                                     'Scalar': self.scalar_parameter,
-                                     'Smooth Level': self.smooth_level}
-        with open('config.ini') as config:
+        self.config['Data Format'] = {'Heart Begin': self.heart_rate_begin_edit.text(),
+                                      'Begin Mark': self.begin_str_edit.text(),
+                                      'Total Len': self.bytes_of_total_edit.text(),
+                                      'Data Len': self.bytes_of_data_edit.text()}
+        self.config['Heart Rate'] = {'Fs': self.fs_parameter.text(),
+                                     'Threshold': self.threshold_parameter.text(),
+                                     'Scalar': self.scalar_parameter.text(),
+                                     'Smooth Level': self.smooth_level.text()}
+        with open('config.ini', 'w') as config:
             self.config.write(config)
+
+    def save_data(self):
+        time_str = time.strftime('%Y-%m-%d-TIME%H-%M-%S', time.localtime())
+        save(time_str, self.temp_int_data)
+        pass
+
 
 
 
