@@ -12,13 +12,21 @@ from PyQt5.QtSerialPort import QSerialPortInfo, QSerialPort
 from PyQt5.QtCore import pyqtSignal, pyqtSlot, QIODevice, QTimer
 from PyQt5.QtWidgets import QMessageBox
 import threading, sys, multiprocessing
+from functools import wraps
 from UIUnit.SetupUi import MainWindow, QIcon
 from model import signal_process
 from model import test
 
 
-def clear_count(self):
-    self.receive_count = 0
+def clear_decorator(func):
+    @wraps(func)
+    def wrap_function(*args, **kwargs):
+        self = args[0]
+        args[0].receive_count = 0
+        args[0].status_bar_recieve_count.setText(r'Receive ' + r'Bytes:' + str(args[0].receive_count))
+        self.heart_std_led_show.display(0)
+        return func(self)
+    return wrap_function
 
 
 class Unit(MainWindow):
@@ -161,8 +169,8 @@ class Unit(MainWindow):
 
             self.status_bar_recieve_count.setText(r'Receive ' + r'Bytes:' + str(self.receive_count))
 
+    @clear_decorator
     def clear_show(self):
-        self.clear_count()
         self.receive_area.clear()
         self.temp_int_data = []
         self.temp_hex_data = []
@@ -208,7 +216,7 @@ class Unit(MainWindow):
 
     def heart_rate_cal(self):
         if self.transform_data_checkbox.isChecked():
-            self.heart_rate_timer.start(13000)
+            self.heart_rate_timer.start(12000)
 
     def heart_rate_debug(self):
         fs = int(self.fs_parameter.text())
@@ -222,6 +230,18 @@ class Unit(MainWindow):
             data = self.temp_int_data[-704:]
         rate = test.heart_rate_main_debug(data, fs, threshold, scalar, bool(smooth), smooth_level)
         self.heart_led_show.display(rate)
+
+    def save_parameter(self):
+        self.config['Data Format'] = {'Heart Begin': self.heart_rate_begin_edit,
+                                      'Begin Mark': self.begin_str_edit,
+                                      'Total Len': self.bytes_of_total_edit,
+                                      'Data Len': self.bytes_of_data_edit}
+        self.config['Heart Rate'] = {'Fs': self.fs_parameter,
+                                     'Threshold': self.threshold_parameter,
+                                     'Scalar': self.scalar_parameter,
+                                     'Smooth Level': self.smooth_level}
+        with open('config.ini') as config:
+            self.config.write(config)
 
 
 
