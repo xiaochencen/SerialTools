@@ -9,11 +9,11 @@ Created on 2019年9月4日
 @description:
 """
 from PyQt5.QtSerialPort import QSerialPortInfo, QSerialPort
-from PyQt5.QtCore import pyqtSignal, pyqtSlot, QIODevice, QTimer
-from PyQt5.QtWidgets import QMessageBox
-import threading, time, multiprocessing
+from PyQt5.QtCore import pyqtSignal, QIODevice, QTimer
+from PyQt5.QtWidgets import QMessageBox, QInputDialog
+import threading, time
 from functools import wraps
-from UIUnit.SetupUi import MainWindow, QIcon
+from UIUnit.SetupUi import MainWindow
 from model import signal_process
 from model import test
 from numpy import save
@@ -210,10 +210,10 @@ class Unit(MainWindow):
         scalar = int(self.scalar_parameter.text())
         smooth = self.smooth_switch.isChecked()
         smooth_level = int(self.smooth_level.text())
-        if len(self.temp_int_data) <= 704:
+        if len(self.temp_int_data) <= 768:
             data = self.temp_int_data
         else:
-            data = self.temp_int_data[-704:]
+            data = self.temp_int_data[-768:]
         rate = test.heart_rate_main(data, fs, threshold, scalar, bool(smooth), smooth_level)
         self.heart_led_show.display(rate)
 
@@ -248,8 +248,15 @@ class Unit(MainWindow):
 
     def save_data(self):
         time_str = time.strftime('%Y-%m-%d-TIME%H-%M-%S', time.localtime())
-        save(time_str, self.temp_int_data)
-        pass
+        name, button = QInputDialog.getText(None, 'Input Name', 'Please input file Name')
+        if button:
+            file_name = name + time_str
+            th = threading.Thread(target=save, args=(file_name, self.temp_int_data))
+            th.start()
+            th.join(100)
+            #save(file_name, self.temp_int_data)
+        else:
+            pass
 
 
 

@@ -1,10 +1,9 @@
-from PyQt5.QtCore import (pyqtSlot, pyqtSignal, Qt,)
-from PyQt5.QtWidgets import (QApplication, QWidget, QMainWindow, QHBoxLayout,
+from PyQt5.QtWidgets import (QWidget, QMainWindow, QHBoxLayout,
                              QVBoxLayout, QComboBox, QPushButton, QCheckBox,
-                             QSplitter, QAction, qApp, QTextEdit, QFormLayout,
+                             QSplitter, QAction, QTextEdit, QFormLayout,
                              QGroupBox, QGridLayout, QLabel, QLineEdit, QLCDNumber,
-                             QTabBar, QRadioButton)
-from PyQt5.QtGui import (QIcon, QPixmap, QIntValidator)
+                              QRadioButton)
+from PyQt5.QtGui import (QIcon, QIntValidator)
 from configparser import ConfigParser
 
 

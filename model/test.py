@@ -1,12 +1,11 @@
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
-import matplotlib
-matplotlib.use('TkAgg')
+from matplotlib import use
+use('TkAgg')
 
 
 class HeartRate(object):
-    def __init__(self, data, fs, threshold, scalar, smooth:bool, smooth_level):
+    def __init__(self, data, fs, threshold, scalar, smooth: bool, smooth_level):
         self._count = 0
         self._max_D_value = 0
         self._begin = 0
@@ -44,16 +43,17 @@ class HeartRate(object):
         if self.smooth:
             # maybe you should cut down the level of filter
             self.heart_data = self.average_move_filter()
-        if self.heart_data[-20:].mean() > int(9e6):  # also you can compare a number of front sample with constant
+        if self.heart_data[-20:].mean() > int(9.2e6) or self.heart_data[-20:].mean() < int(4.5e6):  # also you can compare a number of front sample with constant
             print("No heartbeat detected")
             return 0, 0
         else:
             print("Detected impedance signal, calculate progress running")  # need replace print() by logging
             temp = self.heart_data[self.scalar:]-self.heart_data[0:-self.scalar]
             # begin to scan the data
+            #
             for index, value in enumerate(temp):
                 d_index = index - self._mark[-1]
-                if value > self.threshold and d_index < 25:
+                if d_index < 18:
                     continue
                 elif value > self.threshold:
                     self._mark.append(index)
@@ -66,12 +66,14 @@ class HeartRate(object):
             heart_rate = self.cal_heart_rate_unit()
             return heart_rate, temp
 
-    def heart_rate_cal_v2(self, smooth=False):
-
+    def heart_rate_cal_v2(self):
+        for i in self.heart_data:
+            pass
         pass
 
     def cal_heart_rate_unit(self):
         total_sample = self._end-self._begin
+        total_sample = 768
         if total_sample > 0:
             heart_rate = (self._count-1)/(total_sample/self.fs)*60
             return heart_rate

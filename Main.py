@@ -1,6 +1,6 @@
 from until.until import Unit
 from PyQt5.QtWidgets import QApplication
-import sys, os
+import sys
 
 
 def main():
