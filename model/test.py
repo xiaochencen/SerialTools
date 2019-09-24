@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import use
+import queue
 use('TkAgg')
 
 
@@ -17,6 +18,7 @@ class HeartRate(object):
         self.heart_data = np.array(data)
         self.smooth = smooth
         self.smooth_level = smooth_level
+        self.data_queue = queue.Queue(self.scalar)
 
     # data smooth by convolution
     def _smooth_filter_by_conv(self):
@@ -67,14 +69,26 @@ class HeartRate(object):
             return heart_rate, temp
 
     def heart_rate_cal_v2(self):
-        for i in self.heart_data:
-            pass
+        for date, index in enumerate(self.heart_data):
+            # todo: 加入离秤检测
+            if self.data_queue.full() is False:
+                self.data_queue.put(date)
+            else:
+                temp = self.data_queue.queue[-1]-self.data_queue.get()
+                if temp > self.threshold:
+                    if index-self._mark[-1] < 18:
+                        continue
+                    else:
+                        self._mark.append(index)
+
+
         pass
 
     def cal_heart_rate_unit(self):
         total_sample = self._end-self._begin
-        total_sample = 768
+        #total_sample = 768
         if total_sample > 0:
+            # 计算心率的时候需要减掉一个心跳点
             heart_rate = (self._count-1)/(total_sample/self.fs)*60
             return heart_rate
         return 0
