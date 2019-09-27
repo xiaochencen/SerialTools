@@ -10,13 +10,22 @@ Created on 2019年9月4日
 """
 from PyQt5.QtSerialPort import QSerialPortInfo, QSerialPort
 from PyQt5.QtCore import pyqtSignal, QIODevice, QTimer
-from PyQt5.QtWidgets import QMessageBox, QInputDialog
+from PyQt5.QtWidgets import QMessageBox, QInputDialog, QFileDialog
 import threading, time
 from functools import wraps
 from UIUnit.SetupUi import MainWindow
 from model import signal_process
 from model import test
 from numpy import save
+from importlib import reload
+import logging
+
+until_logging = logging.getLogger(__name__)
+LOG_FORMAT = logging.Formatter("%(asctime)s-%(levelname)s-%(message)s")
+handleStream = logging.StreamHandler()
+handleStream.setFormatter(LOG_FORMAT)
+handleStream.setLevel(logging.ERROR)
+until_logging.addHandler(handleStream)
 
 
 def clear_decorator(func):
@@ -73,6 +82,8 @@ class Unit(MainWindow):
         self.heart_rate_release.clicked.connect(self.heart_rate_cal)
         self.heart_rate_debug_button.clicked.connect(self.heart_rate_debug)
         self.save_data_button.clicked.connect(self.save_data)
+        self.load_action.triggered.connect(self.load_data)
+        self.reload_action.triggered.connect(self.reload_model)
 
     def update_auto(self):
         # Auto update Serial port to combobox After Device inserted
@@ -88,6 +99,8 @@ class Unit(MainWindow):
         # 打开或关闭串口按钮
         if self.com.isOpen():
             self.com.close()
+            if self.heart_rate_release.isChecked():
+                self.heart_rate_release.setChecked(False)
             self.status_bar_status.setText("<font color=%s>%s</font>"
                                            % ("#008200", self.config.get('Status Bar', 'Close')))
             self.open_serial_button.setChecked(False)
@@ -135,7 +148,6 @@ class Unit(MainWindow):
     def __read_ready(self):
         if self.com.bytesAvailable():
             data = self.com.readAll()
-            self.receive_count += data.count()
             if self.receive_hex_checkbox.isChecked():
                 data = data.toHex()
             data = data.data()
@@ -143,10 +155,11 @@ class Unit(MainWindow):
                 decode_data = data.decode(self.decoding_combobox.currentText())
                 if self.filter_data_checkbox.isChecked():
                     show_data, rate = signal_process.filter_data(decode_data, self.begin_str_edit.text(),
-                                                           int(self.bytes_of_data_edit.text()),
-                                                           int(self.bytes_of_total_edit.text()),
-                                                           self.heart_rate_begin_edit.text(),
-                                                           self.filter_heart_rate.isChecked())
+                                                                 int(self.bytes_of_data_edit.text()),
+                                                                 int(self.bytes_of_total_edit.text()),
+                                                                 self.heart_rate_begin_edit.text(),
+                                                                 self.filter_heart_rate.isChecked())
+                    self.receive_count += len(show_data)
                     if rate != 0:
                         self.heart_std_led_show.display(rate)
                     self.temp_hex_data.extend(show_data)
@@ -155,10 +168,11 @@ class Unit(MainWindow):
 
                 elif self.transform_data_checkbox.isChecked():
                     show_data, rate = signal_process.transform_data(decode_data, self.begin_str_edit.text(),
-                                                              int(self.bytes_of_data_edit.text()),
-                                                              int(self.bytes_of_total_edit.text()),
-                                                              self.heart_rate_begin_edit.text(),
-                                                              self.filter_heart_rate.isChecked())
+                                                                    int(self.bytes_of_data_edit.text()),
+                                                                    int(self.bytes_of_total_edit.text()),
+                                                                    self.heart_rate_begin_edit.text(),
+                                                                    self.filter_heart_rate.isChecked())
+                    self.receive_count += len(show_data)
                     self.temp_int_data.extend(show_data)
                     for i in show_data:
                         self.receive_area.append(str(i))
@@ -218,8 +232,10 @@ class Unit(MainWindow):
         self.heart_led_show.display(rate)
 
     def heart_rate_cal(self):
-        if self.transform_data_checkbox.isChecked():
-            self.heart_rate_timer.start(8000)
+        if self.transform_data_checkbox.isChecked() and self.heart_rate_release.isChecked():
+            self.heart_rate_timer.start(2000)
+        else:
+            self.heart_rate_timer.stop()
 
     def heart_rate_debug(self):
         fs = int(self.fs_parameter.text())
@@ -227,10 +243,16 @@ class Unit(MainWindow):
         scalar = int(self.scalar_parameter.text())
         smooth = self.smooth_switch.isChecked()
         smooth_level = int(self.smooth_level.text())
-        if len(self.temp_int_data) <= 768:
-            data = self.temp_int_data
-        else:
-            data = self.temp_int_data[-768:]
+        try:
+            begin = int(self.begin_cal_index_edit.text())
+            end = int(self.end_cal_index_edit.text())
+        except ValueError:
+            begin = 0
+            end = len(self.temp_int_data)-1
+            until_logging.warning("Default Begin and End are used!")
+        if len(self.temp_int_data)-1 < end:
+            until_logging.error("Index over，Cut Down End Value !")
+        data = self.temp_int_data[begin:end]
         rate = test.heart_rate_main_debug(data, fs, threshold, scalar, bool(smooth), smooth_level)
         self.heart_led_show.display(rate)
 
@@ -257,6 +279,26 @@ class Unit(MainWindow):
             #save(file_name, self.temp_int_data)
         else:
             pass
+
+    def load_data(self):
+        from numpy import load
+        file, _ = QFileDialog.getOpenFileUrl(self, r'Choose File')
+        try:
+            self.temp_int_data = load(file.toLocalFile())
+        except (TypeError, FileNotFoundError):
+            until_logging.error("File Open Filed")
+            return
+        self.receive_count = len(self.temp_int_data)
+        self.status_bar_recieve_count.setText(r'Receive ' + r'Bytes:' + str(self.receive_count))
+
+    def reload_model(self):
+        model_name, _ = QInputDialog.getText(self, r"Model", r"Model Name:")
+        try:
+            reload(model_name)
+        except TypeError:
+            QMessageBox.critical(self, "Reload Error", 'Check Your Input!')
+            pass
+
 
 
 
