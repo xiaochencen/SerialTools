@@ -69,6 +69,8 @@ def _is_cross(data):
             return 3
 
 
+# 可以用类来写，并将find_peaks设置为静态方法
+# 这样可以将一些代码独立出来作为类方法
 def find_peaks(data, distance: int = 15, width=None, threshold=0):
     # 可能需要对差值2点的卷积处理，将
     index = []
@@ -76,6 +78,7 @@ def find_peaks(data, distance: int = 15, width=None, threshold=0):
     flag3 = 0  # 找到峰值标志，可以寻找终点标志
     begin = 0  # 起点标志
     peak_index = 0  # 上一峰值索引
+    peak_mean = 0  # 初始化峰值均值
     temp_peak_index = None  # 临时峰值索引
     dis = 0  # 两峰之间的采样点数
     len_data = len(data)
@@ -108,13 +111,12 @@ def find_peaks(data, distance: int = 15, width=None, threshold=0):
                     # 找到第二个峰值 如果percent 达不到要求
                     # 那么删除前一个值并将当前值作为第一个值重新搜索确认dis
                     elif dis == 0:
-                        percent = data[peak_index]/data[temp_peak_index] if \
-                            data[peak_index] < data[temp_peak_index] else\
-                            data[temp_peak_index]/data[peak_index]
+                        percent = data[peak_index]/data[temp_peak_index]
                         cur_dis = temp_peak_index - peak_index
                         # cur_dis 范围设定在心跳40-150/min 基本确定了量程
-                        if percent > 0.5 and 96 > cur_dis > 26:
+                        if 0.5 < percent < 2 and 96 > cur_dis > 26:
                             dis = temp_peak_index-peak_index
+                            peak_mean = (data[temp_peak_index]+data[peak_index])/2
                             peak_index = temp_peak_index
                             temp_peak_index = None
                             index.append(peak_index)
@@ -132,19 +134,30 @@ def find_peaks(data, distance: int = 15, width=None, threshold=0):
                             flag3 = 0
                     # 找到第一第二峰 根据初始化的参数执行后续搜索
                     else:
-                        percent = data[peak_index] / data[temp_peak_index] if \
-                            data[peak_index] < data[temp_peak_index] else \
-                            data[temp_peak_index] / data[peak_index]
+                        percent = peak_mean / data[temp_peak_index]
                         cur_dis = temp_peak_index - peak_index
                         # 每次心跳点变化 以及 前后两个峰值 不能超过一定的阈值
-                        if 0.6 * dis < cur_dis < 2 * dis and percent > 0.35:
+                        # 前后阈值设置为不同的值
+                        if 0.6 * dis < cur_dis < 1.5 * dis and 0.3 < percent < 3:
                             # todo 确认该点确实是心跳点  可调整加权数据
                             dis = 0.8 * dis + 0.2 * cur_dis
                             signal_logging.debug('-----------%d' % dis)
+                            # 只有在确定是心跳点的时候更新peak的均值
+                            peak_mean = (peak_mean + data[temp_peak_index])/2
                             peak_index = temp_peak_index
                             temp_peak_index = None
                             index.append(peak_index)
                             flag3 = 0
+                            pass
+                        # 心跳链接一旦断掉后面接不起来，只能重新开始计算
+                        elif cur_dis > 96:
+                            index.clear()
+                            flag1 = 0  # 是否进入峰值段阶段
+                            flag3 = 0  # 找到峰值标志，可以寻找终点标志
+                            begin = 0  # 起点标志
+                            peak_index = 0  # 上一峰值索引
+                            temp_peak_index = None  # 临时峰值索引
+                            dis = 0  # 两峰之间的采样点数
                             pass
                         else:
                             # todo 不认为该点是心跳点
