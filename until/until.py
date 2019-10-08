@@ -18,6 +18,7 @@ from model import signal_process
 from model import test
 from numpy import save
 from importlib import reload
+
 import logging
 
 until_logging = logging.getLogger(__name__)
@@ -292,9 +293,10 @@ class Unit(MainWindow):
         self.status_bar_recieve_count.setText(r'Receive ' + r'Bytes:' + str(self.receive_count))
 
     def reload_model(self):
-        model_name, _ = QInputDialog.getText(self, r"Model", r"Model Name:")
+        # todo： 通过选择或是读取输入载入指定的模块。
         try:
-            reload(model_name)
+            reload(signal_process)
+            reload(test)
         except TypeError:
             QMessageBox.critical(self, "Reload Error", 'Check Your Input!')
             pass
