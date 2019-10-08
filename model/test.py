@@ -86,6 +86,7 @@ class HeartRate(object):
 
     def heart_rate_cal_v2(self):
         # set bottom as d
+        # using find_peaks func from scipy-signal
         if self.smooth:
             self.heart_data = self.average_move_filter()
         temp = [0 if d <= 0 else d for d in self.heart_data[self.scalar:] - self.heart_data[0:-self.scalar]]
@@ -101,12 +102,17 @@ class HeartRate(object):
         if self.smooth:
             self.heart_data = self.average_move_filter()
         temp = [0 if d <= 0 else d for d in self.heart_data[self.scalar:] - self.heart_data[0:-self.scalar]]
-        index = sp.find_peaks(temp, width=5, threshold=800)
-        self._mark.extend(index)
-        self._end = index[-1]
-        self._begin = index[0]
-        self._count = len(index)
-        heart_rate = self.cal_heart_rate_unit()
+        index = sp.find_peaks(temp, width=6, threshold=500)
+        try:
+            self._mark.extend(index)
+            self._end = index[-1]
+            self._begin = index[0]
+            self._count = len(index)
+
+        except IndexError:
+            test_logger.error("Index索引越界")
+        finally:
+            heart_rate = self.cal_heart_rate_unit()
         return heart_rate, temp
         pass
 
