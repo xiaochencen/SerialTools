@@ -2,7 +2,7 @@ from PyQt5.QtWidgets import (QWidget, QMainWindow, QHBoxLayout,
                              QVBoxLayout, QComboBox, QPushButton, QCheckBox,
                              QSplitter, QAction, QTextEdit, QFormLayout,
                              QGroupBox, QGridLayout, QLabel, QLineEdit, QLCDNumber,
-                              QRadioButton)
+                             QRadioButton)
 from PyQt5.QtGui import (QIcon, QIntValidator)
 from configparser import ConfigParser
 
@@ -16,7 +16,6 @@ class MainWindow(QMainWindow):
         self.show_widget = QWidget()
         self.heart_function_widget = QWidget()
         self.main_widget = QSplitter()
-
         self.main_layout = QHBoxLayout()
         self.setting_layout = QVBoxLayout()
         self.show_layout = QVBoxLayout()
@@ -50,15 +49,21 @@ class MainWindow(QMainWindow):
         self.init_heart_function_widget()
         self.setCentralWidget(self.main_widget)
 
+
+
+
     def init_menu_bar(self):
         scan_action = QAction('Scan(&S)', self)
-        port_setting_action = QAction('Port(&P)', self)
+        self.load_action = QAction('Load(&L)', self)
         scan_action.setShortcut('Ctrl+S')
-        # scan_action.triggered.connect(self.)
         port_menu = self.menuBar().addMenu('Port(&P)')
         port_menu.addAction(scan_action)
         view_menu = self.menuBar().addMenu('View(&V)')
-        view_menu.addAction(port_setting_action)
+        tools_menu = self.menuBar().addMenu('Tools(&T)')
+        self.reload_action = QAction('Reload', self)
+        tools_menu.addAction(self.reload_action)
+        view_menu.addAction(self.load_action)
+
 
     def init_setting_widget(self):
         # serial setting part set
@@ -71,6 +76,7 @@ class MainWindow(QMainWindow):
         self.serial_parity_combobox = QComboBox()
         self.serial_stop_combobox = QComboBox()
         self.serial_flow_combobox = QComboBox()
+
         self.serial_baudrate_combobox.addItems(['1200', '2400', '4800', '9600', '19200',
                                                 '38400', '57600', '115200'])
         self.serial_baudrate_combobox.setCurrentIndex(3)
@@ -138,14 +144,15 @@ class MainWindow(QMainWindow):
         self.receive_area = QTextEdit()
         self.receive_area.setTabletTracking(True)
         self.clear_button = QPushButton(self.config.get('Button Setting', 'Clear'))
-        # self.show_wave =
+
         show_button_layout.addWidget(self.clear_button, 0, 0)
         show_info_layout.addWidget(self.decoding_combobox)
         show_info_layout.addStretch()
-        show_info_layout.addWidget(QLabel('Heart Rate Std:'))
+        show_info_layout.addWidget(QLabel('Std:'))
         show_info_layout.addWidget(self.heart_std_led_show)
-        show_info_layout.addWidget(QLabel('Heart Rate:'))
+        show_info_layout.addWidget(QLabel('Func:'))
         show_info_layout.addWidget(self.heart_led_show)
+
         self.show_widget.setLayout(self.show_layout)
         self.show_layout.addWidget(self.receive_area)
         self.show_layout.addLayout(show_info_layout)
@@ -207,10 +214,19 @@ class MainWindow(QMainWindow):
         self.save_data_button = QPushButton("Save")
         self.heart_rate_release = QRadioButton("Release")
         self.smooth_switch = QCheckBox("Smooth")
+        self.begin_cal_index_edit = QLineEdit()
+        self.begin_cal_index_edit.setValidator(QIntValidator())
+        self.end_cal_index_edit = QLineEdit()
+        self.end_cal_index_edit.setValidator(QIntValidator())
+
+
         heart_function_layout.addWidget(self.heart_rate_debug_button, 0, 0)
         heart_function_layout.addWidget(self.save_data_button, 0, 1)
         heart_function_layout.addWidget(self.heart_rate_release, 1, 0)
         heart_function_layout.addWidget(self.smooth_switch, 1, 1)
+        heart_function_layout.addWidget(self.begin_cal_index_edit, 2, 0)
+        heart_function_layout.addWidget(self.end_cal_index_edit, 2, 1)
+
         heart_function_group.setLayout(heart_function_layout)
 
 
