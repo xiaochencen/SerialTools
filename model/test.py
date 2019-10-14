@@ -102,13 +102,12 @@ class HeartRate(object):
         if self.smooth:
             self.heart_data = self.average_move_filter()
         temp = [0 if d <= 0 else d for d in self.heart_data[self.scalar:] - self.heart_data[0:-self.scalar]]
-        index = sp.find_peaks(temp, width=6, threshold=500)
+        index = sp.find_peaks(temp, width=6, threshold=600)
         try:
             self._mark.extend(index)
             self._end = index[-1]
             self._begin = index[0]
             self._count = len(index)
-
         except IndexError:
             test_logger.error("Index索引越界")
         finally:
@@ -118,12 +117,13 @@ class HeartRate(object):
 
     def cal_heart_rate_unit(self):
         total_sample = self._end-self._begin
-        #total_sample = 768
+        # total_sample = 768
         if total_sample > 0:
             # 计算心率的时候需要减掉一个心跳点
             heart_rate = (self._count-1)/(total_sample/self.fs)*60
             return heart_rate
-        return 0
+        else:
+            return 0
 
 
 def heart_rate_main_debug(data, fs, threshold, scalar, smooth: bool, smooth_level):
@@ -143,7 +143,7 @@ def heart_rate_main_debug(data, fs, threshold, scalar, smooth: bool, smooth_leve
 
 def heart_rate_main(data, fs, threshold, scalar, smooth: bool, smooth_level):
     process = HeartRate(data, fs, threshold, scalar, smooth, smooth_level)
-    heart_rate, temp = process.heart_rate_cal_v1()
+    heart_rate, temp = process.heart_rate_cal_v3()
     return heart_rate
 
 
