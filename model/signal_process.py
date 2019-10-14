@@ -11,6 +11,7 @@ stream_handle.setFormatter(LOG_FORMAT)
 stream_handle.setLevel(logging.DEBUG)
 signal_logging.addHandler(stream_handle)
 
+
 def filter_data(data, mark, data_len, total_len, heart_mark, heart_filter):
     rate = 0
     if heart_filter:
@@ -149,7 +150,7 @@ def find_peaks(data, distance: int = 15, width=None, threshold=0):
                                                    cur=cur_dis, per=percent))
                         # 每次心跳点变化 以及 前后两个峰值 不能超过一定的阈值
                         # 前后阈值设置为不同的值
-                        if 0.65 * dis < cur_dis < 1.5 * dis and 0.2 < percent < 4:
+                        if 0.65 * dis < cur_dis < 1.5 * dis and 0.2 < percent < 2.5:
                             # todo 确认该点确实是心跳点  可调整加权数据 加速收敛
                             dis = 0.75 * dis + 0.25 * cur_dis
                             signal_logging.debug('-----------%d' % dis)
@@ -161,10 +162,10 @@ def find_peaks(data, distance: int = 15, width=None, threshold=0):
                             flag3 = 0
                             pass
                         # 心跳链接一旦断掉后面接不起来，只能重新开始计算
-                        elif cur_dis > 2*dis:
+                        elif cur_dis > 1.8*dis:
                             print(index)
                             # 解决结尾处断链导致丢失大部分数据问题
-                            if len(index) > 9 or index[-1] > len_data*0.8:
+                            if len(index) > 9 and index[-1] > len_data*0.5:
                                 return index
                             index.clear()
                             flag1 = 0  # 是否进入峰值段阶段
