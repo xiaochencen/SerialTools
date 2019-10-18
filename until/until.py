@@ -9,7 +9,7 @@ Created on 2019年9月4日
 @description:
 """
 from PyQt5.QtSerialPort import QSerialPortInfo, QSerialPort
-from PyQt5.QtCore import pyqtSignal, QIODevice, QTimer
+from PyQt5.QtCore import pyqtSignal, QIODevice, QTimer, Qt
 from PyQt5.QtWidgets import QMessageBox, QInputDialog, QFileDialog
 import threading, time
 from functools import wraps
@@ -24,9 +24,13 @@ import logging
 until_logging = logging.getLogger(__name__)
 LOG_FORMAT = logging.Formatter("%(asctime)s-%(levelname)s-%(message)s")
 handleStream = logging.StreamHandler()
+handleFile = logging.FileHandler('Heart_rate_He.log')
 handleStream.setFormatter(LOG_FORMAT)
 handleStream.setLevel(logging.ERROR)
+handleFile.setLevel(logging.CRITICAL)
+handleFile.setFormatter(LOG_FORMAT)
 until_logging.addHandler(handleStream)
+until_logging.addHandler(handleFile)
 
 
 def clear_decorator(func):
@@ -42,59 +46,55 @@ def clear_decorator(func):
 
 class Unit(MainWindow):
     detected_port = pyqtSignal()
+    update_heart = pyqtSignal(float)
+    update_impedance_int = pyqtSignal([list], [int])
+    update_impedance_hex = pyqtSignal([list], [str])
 
     def __init__(self):
         super(Unit, self).__init__()
         self.UI = MainWindow()
-        self.is_detect_serial_port = True
         self.temp_hex_data = []
         self.temp_int_data = []
+        self.port_list = []
+        self.receive_count = 0
+        self.detect_Timer = QTimer()
+        self.detect_Timer.start(500)
         self.com = QSerialPort()
         self.heart_rate_timer = QTimer()
         self.set_connect()
-        self.receive_count = 0
-        self.detect_serial_port()
-
-    def detect_serial_port(self):
-        if self.is_detect_serial_port:
-            self.is_detect_serial_port = False
-            # @warning 多线程的函数只写函数名，不能加上(),否者会死在子线程里
-            t = threading.Thread(target=self.detect_serial_process)
-            t.setDaemon(True)  # could not understand thread
-            t.start()
 
     def detect_serial_process(self):
         # running until find serial port
-        while True:
-            self.port_list = QSerialPortInfo.availablePorts()
-            if len(self.port_list):
-                break
-        self.detected_port.emit()
+        temp_port = QSerialPortInfo.availablePorts()
+        temp_name = [i.portName() + ' ' + i.description() for i in temp_port]
+        if temp_name != self.port_list:
+            self.port_list = temp_name
+            self.detected_port.emit()
 
     def set_connect(self):
         # connect function to signal
         self.detected_port.connect(self.update_auto)
         self.open_serial_button.clicked.connect(self.on_button_open_close_clicked)
-        self.com.readyRead.connect(self.__read_ready)
+        self.com.readyRead.connect(self.read_ready, Qt.QueuedConnection)
         self.clear_button.clicked.connect(self.clear_show)
         self.filter_data_checkbox.clicked.connect(self._check_parameter)
         self.transform_data_checkbox.clicked.connect(self._check_parameter)
         self.heart_rate_timer.timeout.connect(self.heart_rate_cal_process)
+        self.detect_Timer.timeout.connect(self.detect_serial_process)
         self.heart_rate_release.clicked.connect(self.heart_rate_cal)
         self.heart_rate_debug_button.clicked.connect(self.heart_rate_debug)
         self.save_data_button.clicked.connect(self.save_data)
         self.load_action.triggered.connect(self.load_data)
         self.reload_action.triggered.connect(self.reload_model)
+        self.update_heart.connect(self.on_heart_std_update)
+        self.update_impedance_int.connect(self.on_impedance_int_update)
+        self.update_impedance_hex[str].connect(self.on_impedance_hex_update)
+        self.update_impedance_hex[list].connect(self.on_impedance_hex_update)
 
     def update_auto(self):
         # Auto update Serial port to combobox After Device inserted
-        if len(self.port_list) > 0:
-            self.serial_port_combobox.clear()
-            com_text = []
-            for i in self.port_list:
-                com_text.append(i.portName() + ' ' + i.description())
-                pass
-            self.serial_port_combobox.addItems(com_text)
+        self.serial_port_combobox.clear()
+        self.serial_port_combobox.addItems(self.port_list)
 
     def on_button_open_close_clicked(self):
         # 打开或关闭串口按钮
@@ -130,6 +130,7 @@ class Unit(MainWindow):
         # 读写方式打开串口
         try:
             self.com.open(QIODevice.ReadWrite)
+            self.com.setDataTerminalReady(True)
             self.status_bar_status.setText("<font color=%s>%s</font>"
                                            % ("#008200", self.config.get('Status Bar', 'Open')))
             self.open_serial_button.setChecked(True)
@@ -145,6 +146,11 @@ class Unit(MainWindow):
             self.com.close()
         self.save_parameter()
         super(Unit, self).closeEvent(event)
+
+    def read_ready(self):
+        th = threading.Thread(target=Unit.__read_ready, args=(self,))
+        th.start()
+        th.join()
 
     def __read_ready(self):
         if self.com.bytesAvailable():
@@ -162,11 +168,9 @@ class Unit(MainWindow):
                                                                  self.filter_heart_rate.isChecked())
                     self.receive_count += len(show_data)
                     if rate != 0:
-                        self.heart_std_led_show.display(rate)
+                        self.update_heart.emit(rate)
                     self.temp_hex_data.extend(show_data)
-                    for i in show_data:
-                        self.receive_area.append(str(i))
-
+                    self.update_impedance_hex[list].emit(show_data)
                 elif self.transform_data_checkbox.isChecked():
                     show_data, rate = signal_process.transform_data(decode_data, self.begin_str_edit.text(),
                                                                     int(self.bytes_of_data_edit.text()),
@@ -175,17 +179,18 @@ class Unit(MainWindow):
                                                                     self.filter_heart_rate.isChecked())
                     self.receive_count += len(show_data)
                     self.temp_int_data.extend(show_data)
-                    for i in show_data:
-                        self.receive_area.append(str(i))
                     if rate != 0:
-                        self.heart_std_led_show.display(rate)
+                        self.update_heart.emit(rate)
+                        until_logging.critical('心率为： %d' % rate)
+                    self.update_impedance_int.emit(show_data)
                 else:
-                    self.receive_area.append(decode_data)
+                    # 在子线程里更改了一个UI控件。
+                    # self.receive_area.append(decode_data)
+                    self.update_impedance_hex[str].emit(decode_data)
+                    pass
             except UnicodeError:
                 # 解码失败
-                self.receive_area.append('Error Decode' + repr(data))
-
-            self.status_bar_recieve_count.setText(r'Receive ' + r'Bytes:' + str(self.receive_count))
+                pass
 
     @clear_decorator
     def clear_show(self):
@@ -225,10 +230,10 @@ class Unit(MainWindow):
         scalar = int(self.scalar_parameter.text())
         smooth = self.smooth_switch.isChecked()
         smooth_level = int(self.smooth_level.text())
-        if len(self.temp_int_data) <= 768:
+        if len(self.temp_int_data) <= 640:
             data = self.temp_int_data
         else:
-            data = self.temp_int_data[-768:]
+            data = self.temp_int_data[-640:]
         rate = test.heart_rate_main(data, fs, threshold, scalar, bool(smooth), smooth_level)
         self.heart_led_show.display(rate)
 
@@ -300,6 +305,25 @@ class Unit(MainWindow):
         except TypeError:
             QMessageBox.critical(self, "Reload Error", 'Check Your Input!')
             pass
+
+    def on_heart_std_update(self, rate):
+        self.heart_std_led_show.display(rate)
+
+    def on_impedance_hex_update(self, show_data):
+        self.status_bar_recieve_count.setText(r'Receive ' + r'Bytes:' + str(self.receive_count))
+        if type(show_data) is list:
+            for i in show_data:
+                self.receive_area.append(str(i))
+        elif type(show_data) is str:
+            self.receive_area.append(show_data)
+        else:
+            pass
+
+    def on_impedance_int_update(self, show_data):
+        self.status_bar_recieve_count.setText(r'Receive ' + r'Bytes:' + str(self.receive_count))
+        for i in show_data:
+            self.receive_area.append(str(i))
+        pass
 
 
 
