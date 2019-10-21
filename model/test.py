@@ -59,14 +59,15 @@ class HeartRate(object):
             return 0, 0
         if self.smooth:
             # maybe you should cut down the level of filter
-            self.heart_data = self.average_move_filter()
+            self.heart_data = sp.average_move_filter(self.heart_data, self.smooth_level)
         #  also you can compare a number of front sample with constant
         if self.heart_data[-20:].mean() > int(9.2e6) or self.heart_data[-20:].mean() < int(4.5e6):
             test_logger.warning("No Heart beat signal")
             return 0, 0
         else:
             test_logger.info("Impedance signal detected")
-            temp = [0 if d <= 0 else d for d in self.heart_data[self.scalar:]-self.heart_data[0:-self.scalar]]
+            temp = [0 if d <= 0 else d for d in np.array(self.heart_data[self.scalar:]) -
+                    np.array(self.heart_data[0:-self.scalar])]
 
             # begin to scan the data
             for index, value in enumerate(temp):
@@ -88,8 +89,9 @@ class HeartRate(object):
         # set bottom as d
         # using find_peaks func from scipy-signal
         if self.smooth:
-            self.heart_data = self.average_move_filter()
-        temp = [0 if d <= 0 else d for d in self.heart_data[self.scalar:] - self.heart_data[0:-self.scalar]]
+            self.heart_data = sp.average_move_filter(self.heart_data, self.smooth_level)
+        temp = [0 if d <= 0 else d for d in np.array(self.heart_data[self.scalar:])
+                - np.array(self.heart_data[0:-self.scalar])]
         index, _ = signal.find_peaks(temp, height=0, distance=20, prominence=500, width=5)
         self._mark.extend(index)
         self._end = index[-1]
@@ -99,9 +101,11 @@ class HeartRate(object):
         return heart_rate, temp
 
     def heart_rate_cal_v3(self):
+        # use find_peaks function write by myself
         if self.smooth:
-            self.heart_data = self.average_move_filter()
-        temp = [0 if d <= 0 else d for d in self.heart_data[self.scalar:] - self.heart_data[0:-self.scalar]]
+            self.heart_data = sp.average_move_filter(self.heart_data, self.smooth_level)
+        temp = [0 if d <= 0 else d for d in np.array(self.heart_data[self.scalar:])
+                - np.array(self.heart_data[0:-self.scalar])]
         index = sp.find_peaks(temp, width=6, threshold=600)
         try:
             self._mark.extend(index)
@@ -112,7 +116,7 @@ class HeartRate(object):
             test_logger.error("Index索引越界")
         finally:
             heart_rate = self.cal_heart_rate_unit()
-        return heart_rate, temp
+        return heart_rate, temp, index
         pass
 
     def cal_heart_rate_unit(self):
@@ -134,7 +138,7 @@ def heart_rate_main_debug(data, fs, threshold, scalar, smooth: bool, smooth_leve
     plt.subplot(312)
     plt.plot(process.average_move_filter(), label='smooth')
     plt.subplot(313)
-    heart_rate, temp = process.heart_rate_cal_v3()
+    heart_rate, temp, index = process.heart_rate_cal_v3()
     plt.plot(temp, label='D-Value', marker='x', markevery=process._mark[1:], mec='r')
     plt.text(230, -27000, '$count=%d $ \n $rate=%d $' % (process._count, heart_rate))
     plt.show()
@@ -143,8 +147,8 @@ def heart_rate_main_debug(data, fs, threshold, scalar, smooth: bool, smooth_leve
 
 def heart_rate_main(data, fs, threshold, scalar, smooth: bool, smooth_level):
     process = HeartRate(data, fs, threshold, scalar, smooth, smooth_level)
-    heart_rate, temp = process.heart_rate_cal_v3()
-    return heart_rate
+    heart_rate, temp, index = process.heart_rate_cal_v3()
+    return heart_rate, temp, index
 
 
 
