@@ -10,6 +10,10 @@ LOG_FORMAT = logging.Formatter("%(asctime)s-%(levelname)s-%(message)s")
 stream_handle.setFormatter(LOG_FORMAT)
 stream_handle.setLevel(logging.DEBUG)
 signal_logging.addHandler(stream_handle)
+file_handle = logging.FileHandler('heart_rate.log', encoding='utf-8')
+file_handle.setLevel(logging.CRITICAL)
+file_handle.setFormatter(LOG_FORMAT)
+signal_logging.addHandler(file_handle)
 
 
 def filter_data(data, mark, data_len, total_len, heart_mark, heart_filter):
@@ -59,21 +63,31 @@ def _is_cross(data):
     #     print("---------------------------------------------------"+str(data))
     #     return False
     if data[1] == 0:
-        # 终点
         if data[0] > 0 and data[2] == 0:
             return 2
-        # 起点
         elif data[0] == 0 and data[2] > 0:
             return 1
-        # 同时
         else:
             return 3
+
+
+def average_move_filter(filter_data, smooth_level):
+    temp = []
+    # there is need for len(filter_data) times multiplication operations
+    # if data is list func doesn't work
+    for i in range(len(filter_data)):
+        if i+1 < smooth_level:
+            temp.append(sum(filter_data[0:i+1])/(i+1))
+        elif i > len(filter_data)-smooth_level:
+            temp.append(sum(filter_data[i:])/(len(filter_data)-i))
+        else:
+            temp.append(sum(filter_data[i:i+smooth_level])/smooth_level)
+    return temp
 
 
 # 可以用类来写，并将find_peaks设置为静态方法
 # 这样可以将一些代码独立出来作为类方法
 def find_peaks(data, distance: int = 15, width=None, threshold=0):
-    # 可能需要对差值2点的卷积处理，将
     index = []
     flag1 = 0  # 是否进入峰值段阶段
     flag3 = 0  # 找到峰值标志，可以寻找终点标志
@@ -117,7 +131,7 @@ def find_peaks(data, distance: int = 15, width=None, threshold=0):
                         percent = data[peak_index]/data[temp_peak_index]
                         cur_dis = temp_peak_index - peak_index
                         # cur_dis 范围设定在心跳40-192/min 确定初始量程
-                        if 0.5 < percent < 2 and 96 > cur_dis > 20:
+                        if 0.5 < percent and 96 > cur_dis > 20:
                             signal_logging.info("检测到第二峰:{index}--值为：{value:.2f}--距离：{cur}--比例：{per:.2f}".
                                                 format(index=temp_peak_index, value=data[temp_peak_index],
                                                 cur=cur_dis, per=percent))
@@ -162,10 +176,10 @@ def find_peaks(data, distance: int = 15, width=None, threshold=0):
                             flag3 = 0
                             pass
                         # 心跳链接一旦断掉后面接不起来，只能重新开始计算
-                        elif cur_dis > 1.8*dis:
-                            print(index)
-                            # 解决结尾处断链导致丢失大部分数据问题
-                            if len(index) > 9 and index[-1] > len_data*0.5:
+                        elif cur_dis > 1.5*dis:
+                            signal_logging.warning(index)
+                            # 如果已经利用到了50%的数据,
+                            if index[-1]-index[0] > len(data)*0.5 or len(index) > 10:
                                 return index
                             index.clear()
                             flag1 = 0  # 是否进入峰值段阶段
