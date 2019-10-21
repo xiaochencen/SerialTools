@@ -2,9 +2,11 @@ from PyQt5.QtWidgets import (QWidget, QMainWindow, QHBoxLayout,
                              QVBoxLayout, QComboBox, QPushButton, QCheckBox,
                              QSplitter, QAction, QTextEdit, QFormLayout,
                              QGroupBox, QGridLayout, QLabel, QLineEdit, QLCDNumber,
-                             QRadioButton)
+                             QRadioButton,)
 from PyQt5.QtGui import (QIcon, QIntValidator)
+import pyqtgraph as pg
 from configparser import ConfigParser
+import numpy as np
 
 
 class MainWindow(QMainWindow):
@@ -48,9 +50,6 @@ class MainWindow(QMainWindow):
         self.init_setting_widget()
         self.init_heart_function_widget()
         self.setCentralWidget(self.main_widget)
-
-
-
 
     def init_menu_bar(self):
         scan_action = QAction('Scan(&S)', self)
@@ -140,9 +139,16 @@ class MainWindow(QMainWindow):
         self.decoding_combobox.setEditable(False)
         self.heart_led_show = QLCDNumber()
         self.heart_std_led_show = QLCDNumber()
-        self.heart_std_led_show.setStyleSheet("border:2pxsolidgreen;color:red;background:silver;")
+        self.heart_std_led_show.setStyleSheet("border:2pxsolidgreen;color:red;")
         self.receive_area = QTextEdit()
+        line_plot_area = pg.GraphicsLayoutWidget()
+        #line_plot_area.setBackground(background=pg.mkColor('w'))
+        self.plot_1 = line_plot_area.addPlot(title='Original Signal')
+        self.plot_1.hideAxis('left')
+        line_plot_area.nextRow()
+        self.plot_2 = line_plot_area.addPlot(title='Processed Signal')
         self.receive_area.setTabletTracking(True)
+
         self.clear_button = QPushButton(self.config.get('Button Setting', 'Clear'))
 
         show_button_layout.addWidget(self.clear_button, 0, 0)
@@ -155,9 +161,9 @@ class MainWindow(QMainWindow):
 
         self.show_widget.setLayout(self.show_layout)
         self.show_layout.addWidget(self.receive_area)
+        self.show_layout.addWidget(line_plot_area)
         self.show_layout.addLayout(show_info_layout)
         self.show_layout.addLayout(show_button_layout)
-
         pass
 
     # detail information show and seq setting
@@ -218,7 +224,6 @@ class MainWindow(QMainWindow):
         self.begin_cal_index_edit.setValidator(QIntValidator())
         self.end_cal_index_edit = QLineEdit()
         self.end_cal_index_edit.setValidator(QIntValidator())
-
 
         heart_function_layout.addWidget(self.heart_rate_debug_button, 0, 0)
         heart_function_layout.addWidget(self.save_data_button, 0, 1)
