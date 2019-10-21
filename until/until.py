@@ -18,6 +18,7 @@ from model import signal_process
 from model import test
 from numpy import save
 from importlib import reload
+import numpy as np
 
 import logging
 
@@ -34,12 +35,14 @@ until_logging.addHandler(handleFile)
 
 
 def clear_decorator(func):
+    # 装饰器清空显示数据
     @wraps(func)
     def wrapper(*args, **kwargs):
         self = args[0]
         args[0].receive_count = 0
         args[0].status_bar_recieve_count.setText(r'Receive ' + r'Bytes:' + str(args[0].receive_count))
         self.heart_std_led_show.display(0)
+
         return func(self)
     return wrapper
 
@@ -61,6 +64,8 @@ class Unit(MainWindow):
         self.detect_Timer.start(500)
         self.com = QSerialPort()
         self.heart_rate_timer = QTimer()
+        self.plot_update_timer = QTimer()
+
         self.set_connect()
 
     def detect_serial_process(self):
@@ -90,6 +95,7 @@ class Unit(MainWindow):
         self.update_impedance_int.connect(self.on_impedance_int_update)
         self.update_impedance_hex[str].connect(self.on_impedance_hex_update)
         self.update_impedance_hex[list].connect(self.on_impedance_hex_update)
+        self.plot_update_timer.timeout.connect(self.update_plot)
 
     def update_auto(self):
         # Auto update Serial port to combobox After Device inserted
@@ -99,6 +105,7 @@ class Unit(MainWindow):
     def on_button_open_close_clicked(self):
         # 打开或关闭串口按钮
         if self.com.isOpen():
+            self.plot_update_timer.stop()
             self.com.close()
             if self.heart_rate_release.isChecked():
                 self.heart_rate_release.setChecked(False)
@@ -135,7 +142,7 @@ class Unit(MainWindow):
                                            % ("#008200", self.config.get('Status Bar', 'Open')))
             self.open_serial_button.setChecked(True)
             self.open_serial_button.setText("Serial Opened")
-
+            self.plot_update_timer.start(20)
         except QSerialPort.OpenError:
             QMessageBox.critical(self, 'Serial Error', 'Open Serial Port Error!')
             return
@@ -197,7 +204,13 @@ class Unit(MainWindow):
         self.receive_area.clear()
         self.temp_int_data = []
         self.temp_hex_data = []
+        t = threading.Thread(target=self.clear_plot)
+        t.start()
         pass
+
+    def clear_plot(self):
+        self.plot_1.clear()
+        self.plot_2.clear()
 
     def clear_count(self):
         self.receive_count = 0
@@ -234,7 +247,8 @@ class Unit(MainWindow):
             data = self.temp_int_data
         else:
             data = self.temp_int_data[-640:]
-        rate = test.heart_rate_main(data, fs, threshold, scalar, bool(smooth), smooth_level)
+        rate, temp, index = test.heart_rate_main(data, fs, threshold, scalar, bool(smooth), smooth_level)
+        self.update_plot_p2(temp, index)
         self.heart_led_show.display(rate)
 
     def heart_rate_cal(self):
@@ -295,6 +309,7 @@ class Unit(MainWindow):
             until_logging.error("File Open Filed")
             return
         self.receive_count = len(self.temp_int_data)
+        self.update_plot()
         self.status_bar_recieve_count.setText(r'Receive ' + r'Bytes:' + str(self.receive_count))
 
     def reload_model(self):
@@ -324,6 +339,25 @@ class Unit(MainWindow):
         for i in show_data:
             self.receive_area.append(str(i))
         pass
+
+    def update_plot_p1(self):
+        # 更新polt1画图
+        curve = self.plot_1.plot()
+        if len(self.temp_int_data):
+            curve.setData(self.temp_int_data, pen=(0, 255, 255))
+            self.plot_1.setXRange(max(0, len(self.temp_int_data)-640), len(self.temp_int_data))
+            self.plot_1.setYRange(min(self.temp_int_data[-640:]), max(self.temp_int_data[-640:]))
+
+    def update_plot_p2(self, temp, index):
+        # 更新plot2画图,使用原始数据中的640个点
+        self.plot_2.clear()
+        self.plot_2.plot(temp, pen=(0, 255, 255))
+        y_data = [temp[s] for s in index]
+        self.plot_2.plot(index, y_data, pen=(0, 0, 0), symbolBrush=(255, 0, 0),
+                         symbolPen='w', symbol='t', symbolSize=10)
+
+    def update_plot(self):
+        self.update_plot_p1()
 
 
 
