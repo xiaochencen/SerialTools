@@ -1,7 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import queue
 import logging
+import time
+from collections import deque
 from matplotlib import use
 from model import signal_process as sp
 from scipy import signal
@@ -31,26 +32,6 @@ class HeartRate(object):
         self.heart_data = np.array(data)
         self.smooth = smooth
         self.smooth_level = smooth_level
-        self.data_queue = queue.Queue(self.scalar)
-
-    # data smooth by convolution
-    def _smooth_filter_by_conv(self):
-        data = np.convolve(self.heart_data, np.ones(self.smooth_level)/self.smooth_level, mode='same')
-        return data
-
-    # optimization edge processing of filter which is using convolution
-    def average_move_filter(self):
-        temp = []
-        # there is need for len(self.heart_data) times multiplication operations
-        # if data is list func doesn't work
-        for i in range(len(self.heart_data)):
-            if i+1 < self.smooth_level:
-                temp.append(sum(self.heart_data[0:i+1])/(i+1))
-            elif i > len(self.heart_data)-self.smooth_level:
-                temp.append(sum(self.heart_data[i:])/(len(self.heart_data)-i))
-            else:
-                temp.append(sum(self.heart_data[i:i+self.smooth_level])/self.smooth_level)
-        return np.array(temp)
 
     # calculating heart rate by body impedance
     def heart_rate_cal_v1(self):
@@ -82,8 +63,8 @@ class HeartRate(object):
                 else:
                     continue
             self._end = self._mark[-1]
-            heart_rate = self.cal_heart_rate_unit()
-            return heart_rate, temp
+            heart_rate = sp.cal_heart_rate_unit(self._end, self._begin, self._count, self.fs)
+            return heart_rate, temp, index
 
     def heart_rate_cal_v2(self):
         # set bottom as d
@@ -97,8 +78,8 @@ class HeartRate(object):
         self._end = index[-1]
         self._begin = index[0]
         self._count = len(index)
-        heart_rate = self.cal_heart_rate_unit()
-        return heart_rate, temp
+        heart_rate = sp.cal_heart_rate_unit(self._end, self._begin, self._count, self.fs)
+        return heart_rate, temp, index
 
     def heart_rate_cal_v3(self):
         # use find_peaks function write by myself
@@ -115,19 +96,9 @@ class HeartRate(object):
         except IndexError:
             test_logger.error("Index索引越界")
         finally:
-            heart_rate = self.cal_heart_rate_unit()
+            heart_rate = sp.cal_heart_rate_unit(self._end, self._begin, self._count, self.fs)
         return heart_rate, temp, index
         pass
-
-    def cal_heart_rate_unit(self):
-        total_sample = self._end-self._begin
-        # total_sample = 768
-        if total_sample > 0:
-            # 计算心率的时候需要减掉一个心跳点
-            heart_rate = (self._count-1)/(total_sample/self.fs)*60
-            return heart_rate
-        else:
-            return 0
 
 
 def heart_rate_main_debug(data, fs, threshold, scalar, smooth: bool, smooth_level):
@@ -149,6 +120,49 @@ def heart_rate_main(data, fs, threshold, scalar, smooth: bool, smooth_level):
     process = HeartRate(data, fs, threshold, scalar, smooth, smooth_level)
     heart_rate, temp, index = process.heart_rate_cal_v3()
     return heart_rate, temp, index
+
+
+class HeartRateRealTime(object):
+    def __init__(self, scalar, smooth_level, threshold, width, fs, diff_len):
+        self.smooth_level = smooth_level
+        self.diff_len = diff_len
+        self.origin_data = deque(maxlen=smooth_level)
+        self.average_data = deque(maxlen=scalar)
+        self.diff_data = deque(maxlen=diff_len)
+        self.threshold = threshold
+        self.width = width
+        self.fs = fs
+
+    def receive_data(self, data):
+        if self.origin_data.maxlen == self.origin_data.__len__():
+            if self.average_data.maxlen == self.average_data.__len__():
+                if self.diff_data.maxlen == self.diff_data.__len__():
+                    index = sp.find_peaks(list(self.diff_data), width=self.width, threshold=self.threshold)
+                    end = index[-1]
+                    begin = index[0]
+                    count = len(index)
+                    rate = sp.cal_heart_rate_unit(end, begin, count, self.fs)
+                    # 删掉前面一秒的数据
+                    self.diff_data = deque(list(self.diff_data)[self.fs:], maxlen=self.diff_len)
+                    return rate
+                else:
+                    div = self.average_data[-1] - self.average_data[0]
+                    self.diff_data.append(0 if div < 0 else div)
+            self.average_data.append(sum(list(self.origin_data)) / self.smooth_level)
+        self.origin_data.append(data)
+        return 0
+
+
+if __name__ == '__main__':
+    origin = np.load(r'D:\SerialTools\80-852019-10-12-TIME10-55-28.npy')
+    h_ob = HeartRateRealTime(8, 6, 700, 6, 64, 640)
+    for index, value in enumerate(origin):
+        rate = h_ob.receive_data(value)
+        print("Index:%d------Rate:%f" % (index, rate))
+
+
+
+
 
 
 
