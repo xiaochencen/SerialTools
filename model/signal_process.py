@@ -85,8 +85,20 @@ def average_move_filter(filter_data, smooth_level):
     return temp
 
 
+def cal_heart_rate_unit(end, begin, count, fs):
+    total_sample = end-begin
+    # total_sample = 768
+    if total_sample > 0:
+        # 计算心率的时候需要减掉一个心跳点
+        heart_rate = (count-1)/(total_sample/fs)*60
+        return heart_rate
+    else:
+        return 0
+
 # 可以用类来写，并将find_peaks设置为静态方法
 # 这样可以将一些代码独立出来作为类方法
+
+
 def find_peaks(data, distance: int = 15, width=None, threshold=0):
     index = []
     flag1 = 0  # 是否进入峰值段阶段
@@ -199,16 +211,14 @@ def find_peaks(data, distance: int = 15, width=None, threshold=0):
             else:
                 continue
         # 峰值确认
-        elif data[i] > threshold:
-            if _is_peak(data[i-1:i+2]) and flag1 == 1:
-                # 检测到峰值点，确认峰值距离
-                if i-peak_index > distance:
-                    flag3 = 1
-                    if temp_peak_index is None:
-                        temp_peak_index = i
-                    # 确认找到峰值，并判断是否为全局最优峰值
-                    if temp_peak_index is not None and data[temp_peak_index] < data[i]:
-                        temp_peak_index = i
+        elif data[i] > threshold and _is_peak(data[i-1:i+2]) and flag1 == 1:
+            if i-peak_index > distance:
+                flag3 = 1
+                if temp_peak_index is None:
+                    temp_peak_index = i
+                # 确认找到峰值，并判断是否为全局最优峰值
+                if temp_peak_index is not None and data[temp_peak_index] < data[i]:
+                    temp_peak_index = i
     return index
 
 
@@ -293,6 +303,9 @@ def __find_peaks(data, distance: int = 15, width=None, threshold=0):
                     if temp_peak_index is not None and data[temp_peak_index] < data[i]:
                         temp_peak_index = i
     return index
+
+
+
 
 
 
