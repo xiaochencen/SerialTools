@@ -40,7 +40,7 @@ def transform_data(data, mark, data_len, total_len, heart_mark, heart_filter):
     data = data.split(mark)[1:]
     t_data = []
     for i in data:
-        if len(i) == total_len-len(mark):
+        if len(i) == total_len-len(mark):  # 确认数据长度合格
             # 进行转换最高位应该在最左边，重新进行排序
             # 还有使用re模块的方法
             data_p = i[0:data_len]

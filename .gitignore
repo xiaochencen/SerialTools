@@ -1,0 +1,12 @@
+# Created by .ignore support plugin (hsz.mobi)
+/venv/
+.gitignore
+Heart_rate_He.log
+UIUnit/__pycache__/
+heart_rate.log
+model/__pycache__/
+test.log
+until/__pycache__/
+venv/
+"\347\273\223\346\236\234\346\225\260\346\215\256.xlsx"
+/结果数据.xlsx
