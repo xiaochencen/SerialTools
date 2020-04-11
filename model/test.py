@@ -1,11 +1,12 @@
-import numpy as np
-import matplotlib.pyplot as plt
 import logging
-import time
 from collections import deque
+
+import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib import use
-from model import signal_process as sp
 from scipy import signal
+
+from model import signal_process as sp
 
 use('TkAgg')
 LOG_FORMAT = logging.Formatter("%(asctime)s-%(levelname)s-%(message)s")
@@ -107,7 +108,7 @@ def heart_rate_main_debug(data, fs, threshold, scalar, smooth: bool, smooth_leve
     plt.title('impedance data')
     plt.plot(data, label='origin')
     plt.subplot(312)
-    plt.plot(process.average_move_filter(), label='smooth')
+    plt.plot(sp.average_move_filter(data, smooth_level), label='smooth')
     plt.subplot(313)
     heart_rate, temp, index = process.heart_rate_cal_v3()
     plt.plot(temp, label='D-Value', marker='x', markevery=process._mark[1:], mec='r')

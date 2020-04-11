@@ -8,19 +8,20 @@ Created on 2019年9月4日
 @file: SerialPort until
 @description:
 """
-from PyQt5.QtSerialPort import QSerialPortInfo, QSerialPort
-from PyQt5.QtCore import pyqtSignal, QIODevice, QTimer, Qt
-from PyQt5.QtWidgets import QMessageBox, QInputDialog, QFileDialog
-import threading, time
+import logging
+import threading
+import time
 from functools import wraps
+from importlib import reload
+
+from PyQt5.QtCore import pyqtSignal, QIODevice, QTimer, Qt
+from PyQt5.QtSerialPort import QSerialPortInfo, QSerialPort
+from PyQt5.QtWidgets import QMessageBox, QInputDialog, QFileDialog
+from numpy import save
+
 from UIUnit.SetupUi import MainWindow
 from model import signal_process
 from model import test
-from numpy import save
-from importlib import reload
-import numpy as np
-
-import logging
 
 until_logging = logging.getLogger(__name__)
 LOG_FORMAT = logging.Formatter("%(asctime)s-%(levelname)s-%(message)s")
@@ -161,6 +162,7 @@ class Unit(MainWindow):
 
     def __read_ready(self):
         if self.com.bytesAvailable():
+            time.sleep(0.01)
             data = self.com.readAll()
             if self.receive_hex_checkbox.isChecked():
                 data = data.toHex()
@@ -179,7 +181,7 @@ class Unit(MainWindow):
                     self.temp_hex_data.extend(show_data)
                     self.update_impedance_hex[list].emit(show_data)
                 elif self.transform_data_checkbox.isChecked():
-                    show_data, rate = signal_process.transform_data(decode_data, self.begin_str_edit.text(),
+                    show_data, rate = signal_process.transform_data(decode_data,
                                                                     int(self.bytes_of_data_edit.text()),
                                                                     int(self.bytes_of_total_edit.text()),
                                                                     self.heart_rate_begin_edit.text(),

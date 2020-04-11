@@ -2,6 +2,7 @@
 funciton: process receive data
 '''
 import logging
+import re
 
 signal_logging = logging.getLogger(__name__)
 stream_handle = logging.StreamHandler()
@@ -23,6 +24,7 @@ def filter_data(data, mark, data_len, total_len, heart_mark, heart_filter):
         if index != -1:
             rate = int(data[index:index + 2], 16)
     data = data.split(mark)[1:]
+
     f_data = []
     for i in data:
         if len(i) == total_len-len(mark):
@@ -30,23 +32,21 @@ def filter_data(data, mark, data_len, total_len, heart_mark, heart_filter):
     return f_data, rate
 
 
-def transform_data(data, mark, data_len, total_len, heart_mark, heart_filter):
+def transform_data(data, data_len, total_len, heart_mark=None, heart_filter=False):
     rate = 0
     if heart_filter:
         index = data.find(heart_mark)
         if index != -1:
             index += len(heart_mark)
             rate = int(data[index:index+2], 16)
-    data = data.split(mark)[1:]
+    regex1 = re.compile(r".{%d}" % total_len)
+    data = regex1.findall(data)
     t_data = []
     for i in data:
-        if len(i) == total_len-len(mark):  # 确认数据长度合格
+        if len(i) is total_len:  # 确认数据长度合格
             # 进行转换最高位应该在最左边，重新进行排序
             # 还有使用re模块的方法
-            data_p = i[0:data_len]
-            data_p = [data_p[i:i+2] for i in range(0, len(data_p), 2)]
-            data_p = ''.join(list((reversed(data_p))))
-            t_data.append(int(data_p, 16))
+            t_data.append(int(i[-data_len:], 16))
     return t_data, rate
 
 
