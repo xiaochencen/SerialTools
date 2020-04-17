@@ -17,37 +17,14 @@ file_handle.setFormatter(LOG_FORMAT)
 signal_logging.addHandler(file_handle)
 
 
-def filter_data(data, mark, data_len, total_len, heart_mark, heart_filter):
-    rate = 0
-    if heart_filter:
-        index = data.find(heart_mark)
-        if index != -1:
-            rate = int(data[index:index + 2], 16)
-    data = data.split(mark)[1:]
-
-    f_data = []
-    for i in data:
-        if len(i) == total_len-len(mark):
-            f_data.append(i[0:data_len])
-    return f_data, rate
-
-
-def transform_data(data, data_len, total_len, heart_mark=None, heart_filter=False):
-    rate = 0
-    if heart_filter:
-        index = data.find(heart_mark)
-        if index != -1:
-            index += len(heart_mark)
-            rate = int(data[index:index+2], 16)
+def transform_data(data, data_start_point, total_len, data_stop_point):
     regex1 = re.compile(r".{%d}" % total_len)
-    data = regex1.findall(data)
+    data = regex1.findall(data)  # split data by fixed length
     t_data = []
     for i in data:
         if len(i) is total_len:  # 确认数据长度合格
-            # 进行转换最高位应该在最左边，重新进行排序
-            # 还有使用re模块的方法
-            t_data.append(int(i[-data_len:], 16))
-    return t_data, rate
+            t_data.append(int(i[data_start_point:data_stop_point], 16))
+    return t_data
 
 
 def _is_peak(data):
@@ -74,7 +51,7 @@ def _is_cross(data):
 def average_move_filter(filter_data, smooth_level):
     temp = []
     # there is need for len(filter_data) times multiplication operations
-    # if data is list func doesn't work
+    # if data is list .func doesn't work
     for i in range(len(filter_data)):
         if i+1 < smooth_level:
             temp.append(sum(filter_data[0:i+1])/(i+1))

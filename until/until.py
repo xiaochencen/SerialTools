@@ -83,7 +83,6 @@ class Unit(MainWindow):
         self.open_serial_button.clicked.connect(self.on_button_open_close_clicked)
         self.com.readyRead.connect(self.read_ready, Qt.QueuedConnection)
         self.clear_button.clicked.connect(self.clear_show)
-        self.filter_data_checkbox.clicked.connect(self._check_parameter)
         self.transform_data_checkbox.clicked.connect(self._check_parameter)
         self.heart_rate_timer.timeout.connect(self.heart_rate_cal_process)
         self.detect_Timer.timeout.connect(self.detect_serial_process)
@@ -92,7 +91,6 @@ class Unit(MainWindow):
         self.save_data_button.clicked.connect(self.save_data)
         self.load_action.triggered.connect(self.load_data)
         self.reload_action.triggered.connect(self.reload_model)
-        self.update_heart.connect(self.on_heart_std_update)
         self.update_impedance_int.connect(self.on_impedance_int_update)
         self.update_impedance_hex[str].connect(self.on_impedance_hex_update)
         self.update_impedance_hex[list].connect(self.on_impedance_hex_update)
@@ -169,32 +167,16 @@ class Unit(MainWindow):
             data = data.data()
             try:
                 decode_data = data.decode(self.decoding_combobox.currentText())
-                if self.filter_data_checkbox.isChecked():
-                    show_data, rate = signal_process.filter_data(decode_data, self.begin_str_edit.text(),
-                                                                 int(self.bytes_of_data_edit.text()),
-                                                                 int(self.bytes_of_total_edit.text()),
-                                                                 self.heart_rate_begin_edit.text(),
-                                                                 self.filter_heart_rate.isChecked())
-                    self.receive_count += len(show_data)
-                    if rate != 0:
-                        self.update_heart.emit(rate)
-                    self.temp_hex_data.extend(show_data)
-                    self.update_impedance_hex[list].emit(show_data)
-                elif self.transform_data_checkbox.isChecked():
-                    show_data, rate = signal_process.transform_data(decode_data,
-                                                                    int(self.bytes_of_data_edit.text()),
-                                                                    int(self.bytes_of_total_edit.text()),
-                                                                    self.heart_rate_begin_edit.text(),
-                                                                    self.filter_heart_rate.isChecked())
+                self.receive_count += len(decode_data)
+                if self.transform_data_checkbox.isChecked():  # 执行数据转换
+                    show_data = signal_process.transform_data(decode_data,
+                                                              int(self.bytes_of_start_point.text()),
+                                                              int(self.bytes_of_total_edit.text()),
+                                                              int(self.bytes_of_stop_point.text()))
                     self.receive_count += len(show_data)
                     self.temp_int_data.extend(show_data)
-                    if rate != 0:
-                        self.update_heart.emit(rate)
-                        until_logging.critical('心率为： %d' % rate)
                     self.update_impedance_int.emit(show_data)
                 else:
-                    # 在子线程里更改了一个UI控件。
-                    # self.receive_area.append(decode_data)
                     self.update_impedance_hex[str].emit(decode_data)
                     pass
             except UnicodeError:
@@ -222,21 +204,16 @@ class Unit(MainWindow):
         sender = self.sender()
         if self.bytes_of_total_edit.text() == '':
             QMessageBox.critical(self, 'Parameter Error', 'Please input total bytes parameter')
-            self.filter_data_checkbox.setChecked(False)
             self.transform_data_checkbox.setChecked(False)
             return
-        if self.bytes_of_data_edit.text() == '':
+        if self.bytes_of_start_point.text() == '':
             QMessageBox.critical(self, 'Parameter Error', 'Please input data bytes parameter')
-            self.filter_data_checkbox.setChecked(False)
             self.transform_data_checkbox.setChecked(False)
             return
-        if self.begin_str_edit.text() == '':
+        if self.bytes_of_stop_point.text() == '':
             QMessageBox.critical(self, 'Parameter Error', 'Please input Begin Mark parameter')
-            self.filter_data_checkbox.setChecked(False)
             self.transform_data_checkbox.setChecked(False)
             return
-        if sender == self.transform_data_checkbox:
-            self.filter_data_checkbox.setChecked(False)
 
     def heart_rate_cal_process(self):
         # heart_rate_main(data, fs, threshold, scalar, smooth: bool, smooth_level):
@@ -279,10 +256,9 @@ class Unit(MainWindow):
         self.heart_led_show.display(rate)
 
     def save_parameter(self):
-        self.config['Data Format'] = {'Heart Begin': self.heart_rate_begin_edit.text(),
-                                      'Begin Mark': self.begin_str_edit.text(),
-                                      'Total Len': self.bytes_of_total_edit.text(),
-                                      'Data Len': self.bytes_of_data_edit.text()}
+        self.config['Data Format'] = {'Data Begin': self.bytes_of_start_point.text(),
+                                      'Data Stop': self.bytes_of_stop_point.text(),
+                                      'Total Len': self.bytes_of_total_edit.text()}
         self.config['Heart Rate'] = {'Fs': self.fs_parameter.text(),
                                      'Threshold': self.threshold_parameter.text(),
                                      'Scalar': self.scalar_parameter.text(),
@@ -322,9 +298,6 @@ class Unit(MainWindow):
         except TypeError:
             QMessageBox.critical(self, "Reload Error", 'Check Your Input!')
             pass
-
-    def on_heart_std_update(self, rate):
-        self.heart_std_led_show.display(rate)
 
     def on_impedance_hex_update(self, show_data):
         self.status_bar_recieve_count.setText(r'Receive ' + r'Bytes:' + str(self.receive_count))
