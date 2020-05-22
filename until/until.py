@@ -110,8 +110,7 @@ class Unit(MainWindow):
                 self.heart_rate_release.setChecked(False)
             self.status_bar_status.setText("<font color=%s>%s</font>"
                                            % ("#008200", self.config.get('Status Bar', 'Close')))
-            self.open_serial_button.setChecked(False)
-            self.open_serial_button.setText('Serial Closed')
+            self.open_serial_button.setStyleSheet("background-color:red")
             return
         # 配置串口
         if self.serial_port_combobox.currentText().split(' ')[0]:
@@ -139,8 +138,7 @@ class Unit(MainWindow):
             self.com.setDataTerminalReady(True)
             self.status_bar_status.setText("<font color=%s>%s</font>"
                                            % ("#008200", self.config.get('Status Bar', 'Open')))
-            self.open_serial_button.setChecked(True)
-            self.open_serial_button.setText("Serial Opened")
+            self.open_serial_button.setStyleSheet("background-color:green")
             self.plot_update_timer.start(20)
         except QSerialPort.OpenError:
             QMessageBox.critical(self, 'Serial Error', 'Open Serial Port Error!')
@@ -156,7 +154,7 @@ class Unit(MainWindow):
     def read_ready(self):
         th = threading.Thread(target=Unit.__read_ready, args=(self,))
         th.start()
-        th.join()
+        th.join(None)
 
     def __read_ready(self):
         if self.com.bytesAvailable():

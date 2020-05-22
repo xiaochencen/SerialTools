@@ -6,7 +6,6 @@ from PyQt5.QtWidgets import (QWidget, QMainWindow, QHBoxLayout,
 from PyQt5.QtGui import (QIcon, QIntValidator)
 import pyqtgraph as pg
 from configparser import ConfigParser
-import numpy as np
 
 
 class MainWindow(QMainWindow):
@@ -42,8 +41,8 @@ class MainWindow(QMainWindow):
         self.main_widget.setStretchFactor(0, 2)
         self.main_widget.setStretchFactor(1, 12)
         self.main_widget.setStretchFactor(2, 2)
-        self.open_serial_button.setCheckable(True)
-        self.open_serial_button.setText('Click')
+        self.open_serial_button.setText('')
+        self.open_serial_button.setStyleSheet("background-color:red")
         self.init_show_widget()
         self.init_statue_bar()
         self.init_menu_bar()
@@ -62,7 +61,6 @@ class MainWindow(QMainWindow):
         self.reload_action = QAction('Reload', self)
         tools_menu.addAction(self.reload_action)
         view_menu.addAction(self.load_action)
-
 
     def init_setting_widget(self):
         # serial setting part set
