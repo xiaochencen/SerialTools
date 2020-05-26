@@ -11,7 +11,7 @@ Created on 2019年9月4日
 import logging
 import threading
 import time
-from functools import wraps
+from until import decorators
 from importlib import reload
 
 from PyQt5.QtCore import pyqtSignal, QIODevice, QTimer, Qt
@@ -35,19 +35,6 @@ until_logging.addHandler(handleStream)
 until_logging.addHandler(handleFile)
 
 
-def clear_decorator(func):
-    # 装饰器清空显示数据
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        self = args[0]
-        args[0].receive_count = 0
-        args[0].status_bar_recieve_count.setText(r'Receive ' + r'Bytes:' + str(args[0].receive_count))
-        self.heart_std_led_show.display(0)
-
-        return func(self)
-    return wrapper
-
-
 class Unit(MainWindow):
     detected_port = pyqtSignal()
     update_heart = pyqtSignal(float)
@@ -56,17 +43,18 @@ class Unit(MainWindow):
 
     def __init__(self):
         super(Unit, self).__init__()
-        self.UI = MainWindow()
         self.temp_hex_data = []
         self.temp_int_data = []
         self.port_list = []
         self.receive_count = 0
+        self.send_count = 0
+        self.times = 100
         self.detect_Timer = QTimer()
-        self.detect_Timer.start(500)
+        self.detect_Timer.start(1000)
         self.com = QSerialPort()
         self.heart_rate_timer = QTimer()
+        self.send_data_timer = QTimer()
         self.plot_update_timer = QTimer()
-
         self.set_connect()
 
     def detect_serial_process(self):
@@ -95,6 +83,8 @@ class Unit(MainWindow):
         self.update_impedance_hex[str].connect(self.on_impedance_hex_update)
         self.update_impedance_hex[list].connect(self.on_impedance_hex_update)
         self.plot_update_timer.timeout.connect(self.update_plot)
+        self.send_button.clicked.connect(self.uart_send)
+        self.send_data_timer.timeout.connect(self._timer_send)
 
     def update_auto(self):
         # Auto update Serial port to combobox After Device inserted
@@ -139,7 +129,7 @@ class Unit(MainWindow):
             self.status_bar_status.setText("<font color=%s>%s</font>"
                                            % ("#008200", self.config.get('Status Bar', 'Open')))
             self.open_serial_button.setStyleSheet("background-color:green")
-            self.plot_update_timer.start(20)
+            self.plot_update_timer.start(16)
         except QSerialPort.OpenError:
             QMessageBox.critical(self, 'Serial Error', 'Open Serial Port Error!')
             return
@@ -154,7 +144,6 @@ class Unit(MainWindow):
     def read_ready(self):
         th = threading.Thread(target=Unit.__read_ready, args=(self,))
         th.start()
-        th.join(None)
 
     def __read_ready(self):
         if self.com.bytesAvailable():
@@ -181,7 +170,7 @@ class Unit(MainWindow):
                 # 解码失败
                 pass
 
-    @clear_decorator
+    @decorators.clear_decorator
     def clear_show(self):
         self.receive_area.clear()
         self.temp_int_data = []
@@ -261,6 +250,9 @@ class Unit(MainWindow):
                                      'Threshold': self.threshold_parameter.text(),
                                      'Scalar': self.scalar_parameter.text(),
                                      'Smooth Level': self.smooth_level.text()}
+        self.config['Send Config'] = {'send times': self.times_edit.text(),
+                                      'send interval': self.send_interval_edit.text(),
+                                      'send data': self.send_area.toPlainText()}
         with open('config.ini', 'w') as config:
             self.config.write(config)
 
@@ -272,7 +264,6 @@ class Unit(MainWindow):
             th = threading.Thread(target=save, args=(file_name, self.temp_int_data))
             th.start()
             th.join(100)
-            #save(file_name, self.temp_int_data)
         else:
             pass
 
@@ -313,10 +304,11 @@ class Unit(MainWindow):
             self.receive_area.append(str(i))
         pass
 
+    @decorators.threading_decorator
     def update_plot_p1(self):
         # 更新polt1画图
-        curve = self.plot_1.plot()
         if len(self.temp_int_data):
+            curve = self.plot_1.plot()
             curve.setData(self.temp_int_data, pen=(0, 255, 255))
             self.plot_1.setXRange(max(0, len(self.temp_int_data)-640), len(self.temp_int_data))
             self.plot_1.setYRange(min(self.temp_int_data[-640:]), max(self.temp_int_data[-640:]))
@@ -331,6 +323,51 @@ class Unit(MainWindow):
 
     def update_plot(self):
         self.update_plot_p1()
+
+    def uart_send(self):
+        if self.times_send_chebox.isChecked():
+            try:
+                interrupt_times = int(self.send_interval_edit.text())
+            except ValueError:
+                interrupt_times = 2000
+            try:
+                self.times = int(self.times_edit.text())
+            except ValueError:
+                pass
+            self.send_data_timer.start(interrupt_times)
+            self.send_button.setCheckable(False)
+        else:
+            self._timer_send()
+
+    def _timer_send(self):
+        if self.com.isOpen():
+            data = self.send_area.toPlainText()
+            if data != '':
+                if self.send_code_combox.currentText() == 'HEX':
+                    data = data.strip()
+                    send_list = []
+                    while data != '':
+                        try:
+                            num = int(data[0:2], 16)
+                        except ValueError:
+                            QMessageBox.critical(self, 'Error Data', 'Please Check you Send Data')
+                            return
+                        data = data[2:].strip()
+                        send_list.append(num)
+                    data = bytes(send_list)
+                else:
+                    data = (data+'\r\n').encode('utf-8')
+                num = self.com.write(data)
+                self.send_count += num
+            else:
+                pass
+        if self.times_send_chebox.isChecked():
+            self.times -= 1
+            if self.times == 0:
+                self.send_data_timer.stop()
+                self.send_button.setCheckable(True)
+                self.times_send_chebox.setChecked(False)
+
 
 
 

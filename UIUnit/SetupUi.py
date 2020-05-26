@@ -63,8 +63,7 @@ class MainWindow(QMainWindow):
         view_menu.addAction(self.load_action)
 
     def init_setting_widget(self):
-        # serial setting part set
-        # port set part
+        # port set part  # 结构一定要严谨
         group_box = QGroupBox('SerialSetting')
         serial_setting_layout = QFormLayout()
         self.serial_port_combobox = QComboBox()
@@ -73,7 +72,6 @@ class MainWindow(QMainWindow):
         self.serial_parity_combobox = QComboBox()
         self.serial_stop_combobox = QComboBox()
         self.serial_flow_combobox = QComboBox()
-
         self.serial_baudrate_combobox.addItems(['1200', '2400', '4800', '9600', '19200',
                                                 '38400', '57600', '115200'])
         self.serial_baudrate_combobox.setCurrentIndex(3)
@@ -96,38 +94,49 @@ class MainWindow(QMainWindow):
 
         # receive set part
         receive_group_box = QGroupBox('Receive')
-        send_group_box = QGroupBox("Send")
-        data_process_group_box = QGroupBox('Data Process')
         receive_hex_ascii_layout = QHBoxLayout()
-        send_hex_ascii_layout = QHBoxLayout()
-        data_process_layout = QHBoxLayout()
-        receive_layout = QGridLayout()
-        send_layout = QGridLayout()
         self.receive_hex_checkbox = QCheckBox('RECHEX')
         self.receive_asc_checkbox = QCheckBox('RECASCII')
-        self.send_hex_checkbox = QCheckBox('SENDHEX')
-        self.send_asc_checkbox = QCheckBox('SENDASCII')
         self.receive_hex_checkbox.setChecked(True)
         self.receive_asc_checkbox.setChecked(False)
         self.receive_asc_checkbox.setAutoExclusive(True)
         self.receive_hex_checkbox.setAutoExclusive(True)
-        self.send_hex_checkbox.setChecked(True)
-        self.send_asc_checkbox.setChecked(False)
-        self.send_asc_checkbox.setAutoExclusive(True)
-        self.send_hex_checkbox.setAutoExclusive(True)
         receive_hex_ascii_layout.addWidget(self.receive_hex_checkbox)
         receive_hex_ascii_layout.addWidget(self.receive_asc_checkbox)
-        send_hex_ascii_layout.addWidget(self.send_hex_checkbox)
-        send_hex_ascii_layout.addWidget(self.send_asc_checkbox)
-        send_layout.addLayout(send_hex_ascii_layout, 0, 0)
-        receive_layout.addLayout(receive_hex_ascii_layout, 0, 0)
+        receive_group_box.setLayout(receive_hex_ascii_layout)
+
+        # send
+        send_group_box = QGroupBox("发送")
+        send_formlayout = QFormLayout()
+        send_layout = QVBoxLayout()
+        self.send_code_combox = QComboBox()
+        self.send_code_combox.addItems(['ASCII', 'HEX'])
+        self.times_send_chebox = QCheckBox("启动定时发送")
+        self.times_edit = QLineEdit()
+        self.times_edit.setText(self.config.get('Send Config', 'send times'))
+        self.send_interval_edit = QLineEdit()
+        self.send_interval_edit.setText(self.config.get('Send Config', 'send interval'))
+        self.send_area = QTextEdit()
+        self.send_area.setText(self.config.get('Send Config', 'send data'))
+        self.send_button = QPushButton("发送")
+        send_formlayout.addRow(QLabel("字符编码"), self.send_code_combox)
+        send_formlayout.addRow(QLabel("发送次数:"), self.times_edit)
+        send_formlayout.addRow(QLabel("发送间隔:"), self.send_interval_edit)
+        send_layout.addWidget(self.times_send_chebox)
+        send_layout.addLayout(send_formlayout)
+        send_layout.addWidget(self.send_area)
+        send_layout.addWidget(self.send_button)
+        send_group_box.setLayout(send_layout)
+
+        # processing
+        data_process_group_box = QGroupBox('数据处理')
+        data_process_layout = QHBoxLayout()
         self.transform_data_checkbox = QCheckBox('转换')
         # todo：后面判断参数的时候可以通过ObjectName判断发送者
         # self.transform_data_checkbox.setObjectName('transform_data_checkbox')
         data_process_layout.addWidget(self.transform_data_checkbox)
         data_process_group_box.setLayout(data_process_layout)
-        receive_group_box.setLayout(receive_layout)
-        send_group_box.setLayout(send_layout)
+        # collection
 
         self.left_layout.addWidget(group_box)
         self.left_layout.addWidget(receive_group_box)
@@ -148,8 +157,10 @@ class MainWindow(QMainWindow):
         line_plot_area = pg.GraphicsLayoutWidget()
         self.plot_1 = line_plot_area.addPlot(title='Original Signal')
         self.plot_1.hideAxis('left')
+
         line_plot_area.nextRow()
         self.plot_2 = line_plot_area.addPlot(title='Processed Signal')
+        line_plot_area.removeItem(self.plot_2)
         self.receive_area.setTabletTracking(True)
 
         self.clear_button = QPushButton(self.config.get('Button Setting', 'Clear'))
